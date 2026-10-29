@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoundCloud Downloader для Mac</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="window-container">
+    <!-- Top Bar -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="app-logo">
+          <svg class="logo-icon" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="10" fill="url(#logo_grad)" />
+            <!-- SoundCloud cloud & wave combined with download arrow -->
+            <path d="M12 24C10.8954 24 10 23.1046 10 22C10 20.8954 10.8954 20 12 20M14 26V18M16 27V16M18 28V15M20 28V17M22 28V19" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <path d="M26 18C28.2091 18 30 19.7909 30 22C30 24.2091 28.2091 26 26 26H22" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <path d="M25 21L21 25M21 25L17 21M21 25V14" stroke="#FFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="logo_grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FF6B00"/>
+                <stop offset="1" stop-color="#FF3300"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="header-titles">
+          <h1 class="app-title">SoundCloud Downloader</h1>
+          <div class="status-indicator" id="systemStatus">
+            <span class="status-dot"></span>
+            <span class="status-text" id="statusText">Проверка системы...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button class="nav-btn" id="folderBtn" title="Папка сохранения">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="folder-label" id="currentFolderLabel">Загрузки</span>
+        </button>
+        <button class="nav-btn" id="historyBtn" title="История загрузок">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span class="badge" id="historyBadge" style="display: none;">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Smart Clipboard Detection Toast -->
+    <div class="clipboard-toast" id="clipboardToast" style="display: none;">
+      <div class="toast-left">
+        <div class="toast-icon">📋</div>
+        <div class="toast-info">
+          <div class="toast-title">Ссылка SoundCloud в буфере обмена</div>
+          <div class="toast-url" id="toastUrlText">https://soundcloud.com/...</div>
+        </div>
+      </div>
+      <div class="toast-actions">
+        <button class="toast-action-btn primary" id="toastLoadBtn">Загрузить</button>
+        <button class="toast-action-btn dismiss" id="toastDismissBtn" title="Скрыть">&times;</button>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Search & Input Section -->
+      <section class="search-section">
+        <div class="search-card">
+          <div class="input-wrapper">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            </svg>
+            <input 
+              type="text" 
+              id="urlInput" 
+              placeholder="Вставьте ссылку на трек, альбом или плейлист SoundCloud..." 
+              autocomplete="off" 
+              spellcheck="false"
+            />
+            <div class="input-actions">
+              <button class="action-btn" id="pasteBtn" title="Вставить из буфера обмена">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                </svg>
+                <span>Вставить</span>
+              </button>
+              <button class="action-btn icon-only" id="clearBtn" title="Очистить" style="display: none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <button class="submit-btn" id="fetchBtn">
+            <span class="btn-text">Найти</span>
+            <div class="spinner" id="fetchSpinner" style="display: none;"></div>
+          </button>
+        </div>
+
+        <div class="quick-hints">
+          <span class="hint-title">Поддерживается:</span>
+          <span class="hint-tag">🎵 Отдельные треки</span>
+          <span class="hint-tag">📂 Плейлисты</span>
+          <span class="hint-tag">💿 Альбомы</span>
+          <span class="hint-tag">⚡ Скачивание в ZIP</span>
+        </div>
+      </section>
+
+      <!-- Error Banner -->
+      <div class="alert-banner" id="errorBanner" style="display: none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="errorMessage">Ошибка загрузки данных</span>
+        <button class="alert-close" id="errorCloseBtn">&times;</button>
+      </div>
+
+      <!-- Result Container (Populated when info is loaded) -->
+      <section class="result-section" id="resultSection" style="display: none;">
+        <!-- Single Track Card -->
+        <div class="media-card track-view" id="trackView" style="display: none;">
+          <div class="media-main">
+            <div class="artwork-wrapper">
+              <img id="trackArtwork" src="" alt="Cover" class="media-artwork"/>
+              <div class="ambient-glow" id="trackGlow"></div>
+              <div class="type-pill">Трек</div>
+            </div>
+            <div class="media-details">
+              <div class="artist-row">
+                <span class="artist-name" id="trackArtist">Артист</span>
+              </div>
+              <h2 class="media-title" id="trackTitle">Название трека</h2>
+              <div class="media-meta">
+                <span class="meta-item" id="trackDuration">--:--</span>
+                <span class="meta-dot">•</span>
+                <span class="meta-item" id="trackGenre">SoundCloud</span>
+              </div>
+
+              <!-- Source Stream Info Badge -->
+              <div class="source-info-bar" id="trackSourceBar">
+                <div class="source-badge">
+                  <span class="source-icon">⚡</span>
+                  <span class="source-label">Исходный стрим SoundCloud:</span>
+                  <strong class="source-value" id="trackSourceValue">Определение...</strong>
+                </div>
+                <div class="source-sub" id="trackSourceSub">Максимально доступное качество на серверах SoundCloud</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="download-config-panel">
+            <h3 class="config-title">Настройки качества:</h3>
+            <div class="quality-grid" id="trackQualityGrid">
+              <!-- Dynamically populated or default options -->
+            </div>
+
+            <!-- Quality notice / warning for FLAC, WAV, Direct -->
+            <div class="quality-notice" id="trackQualityNotice" style="display: none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              <span id="trackQualityNoticeText"></span>
+            </div>
+
+            <div class="options-row">
+              <label class="toggle-control">
+                <input type="checkbox" id="trackEmbedArtwork" checked>
+                <span class="toggle-slider"></span>
+                <span class="toggle-text">Вшить оригинальную обложку</span>
+              </label>
+              <label class="toggle-control">
+                <input type="checkbox" id="trackEmbedMetadata" checked>
+                <span class="toggle-slider"></span>
+                <span class="toggle-text">Записать ID3 теги (Артист, Название)</span>
+              </label>
+              <label class="toggle-control" title="Увеличивает громкость только тех треков, которые записаны слишком тихо. Обычные громкие треки оставляет без изменений.">
+                <input type="checkbox" id="trackNormalizeQuiet" checked>
+                <span class="toggle-slider"></span>
+                <span class="toggle-text">⚡ Умное усиление тихих треков</span>
+              </label>
+            </div>
+
+            <div class="cta-row">
+              <button class="primary-download-btn" id="downloadTrackBtn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span id="downloadTrackBtnText">Скачать трек</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Playlist / Album Card -->
+        <div class="media-card playlist-view" id="playlistView" style="display: none;">
+          <div class="playlist-header">
+            <div class="artwork-wrapper">
+              <img id="playlistArtwork" src="" alt="Playlist Cover" class="media-artwork"/>
+              <div class="ambient-glow" id="playlistGlow"></div>
+              <div class="type-pill" id="playlistTypeBadge">Плейлист</div>
+            </div>
+            <div class="playlist-info">
+              <div class="artist-row">
+                <span class="artist-name" id="playlistArtist">Артист</span>
+              </div>
+              <h2 class="media-title" id="playlistTitle">Название альбома</h2>
+              <div class="playlist-stats">
+                <span class="stat-pill" id="playlistTrackCount">0 треков</span>
+                <span class="stat-pill" id="playlistDuration">0 мин</span>
+              </div>
+              <div class="source-info-bar" id="playlistSourceBar">
+                <div class="source-badge">
+                  <span class="source-icon">⚡</span>
+                  <span class="source-label">Исходный стрим SoundCloud:</span>
+                  <strong class="source-value" id="playlistSourceValue">Определение...</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Playlist Download Format Selection -->
+          <div class="download-format-box">
+            <div class="box-title">Формат сохранения плейлиста:</div>
+            <div class="format-choice-cards">
+              <div class="choice-card active" id="choiceZip" data-format="zip">
+                <div class="choice-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  </svg>
+                </div>
+                <div class="choice-content">
+                  <div class="choice-title">Архив .ZIP</div>
+                  <div class="choice-desc">Все треки упакованы в один ZIP-файл с номерами и обложками</div>
+                </div>
+                <div class="choice-badge">Рекомендуется</div>
+              </div>
+
+              <div class="choice-card" id="choiceFolder" data-format="folder">
+                <div class="choice-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                </div>
+                <div class="choice-content">
+                  <div class="choice-title">Папка с треками</div>
+                  <div class="choice-desc">Каждый трек скачивается отдельным файлом в папку альбома</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quality Selection for Playlist -->
+          <div class="playlist-quality-panel">
+            <div class="config-title">Качество аудио для всех треков:</div>
+            <div class="quality-grid" id="playlistQualityGrid">
+              <!-- Dynamically populated -->
+            </div>
+            <div class="quality-notice" id="playlistQualityNotice" style="display: none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span id="playlistQualityNoticeText"></span>
+            </div>
+          </div>
+
+          <!-- Track List Table with Selection Checkboxes -->
+          <div class="tracklist-container">
+            <div class="tracklist-header-row">
+              <div class="header-selection">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="selectAllCheckbox" checked>
+                  <span class="checkmark"></span>
+                </label>
+                <span class="tracklist-heading" id="selectionStatus">Выбрано всех: 0</span>
+              </div>
+              <div class="header-actions">
+                <button class="text-btn" id="selectNoneBtn">Снять выбор</button>
+              </div>
+            </div>
+
+            <div class="tracklist-scrollable" id="tracklistItems">
+              <!-- Track rows injected by JS -->
+            </div>
+          </div>
+
+          <div class="options-row playlist-options">
+            <label class="toggle-control" title="Увеличивает громкость только тех треков в плейлисте, которые записаны слишком тихо. Обычные громкие треки оставляет без изменений.">
+              <input type="checkbox" id="playlistNormalizeQuiet" checked>
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">⚡ Умное усиление тихих треков</span>
+            </label>
+          </div>
+
+          <div class="cta-row playlist-cta">
+            <button class="primary-download-btn" id="downloadPlaylistBtn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span id="downloadPlaylistBtnText">Скачать ZIP-архив</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Download Progress Modal -->
+    <div class="modal-backdrop" id="progressModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="pulse-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF5500" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </div>
+          <div class="modal-title-box">
+            <h3 class="modal-title" id="progressModalTitle">Скачивание...</h3>
+            <p class="modal-subtitle" id="progressModalSubtitle">Пожалуйста, подождите</p>
+          </div>
+        </div>
+
+        <div class="progress-container">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+          </div>
+          <div class="progress-stats">
+            <span class="pct-text" id="progressPercent">0%</span>
+            <span class="speed-text" id="progressSpeed"></span>
+            <span class="eta-text" id="progressEta"></span>
+          </div>
+        </div>
+
+        <div class="current-task-detail" id="progressCurrentDetail">
+          Инициализация...
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-btn" id="cancelDownloadBtn">Отмена</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal-backdrop" id="successModal" style="display: none;">
+      <div class="modal-card success-card">
+        <div class="success-icon-wrapper">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="2.5">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+
+        <h3 class="modal-title">Загрузка успешно завершена!</h3>
+        <div class="success-file-box">
+          <div class="file-name" id="successFileName">track.mp3</div>
+          <div class="file-size" id="successFileSize">12.5 MB</div>
+          <div class="file-path" id="successFilePath">/Users/mihail/Downloads</div>
+        </div>
+
+        <div class="modal-actions success-actions">
+          <button class="primary-download-btn finder-btn" id="revealFinderBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Показать в Finder</span>
+          </button>
+          <a id="browserDownloadLink" class="secondary-btn" href="#" download>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Сохранить через браузер</span>
+          </a>
+          <button class="text-btn close-success-btn" id="closeSuccessBtn">Скачать ещё</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- History Drawer Modal -->
+    <div class="modal-backdrop" id="historyModal" style="display: none;">
+      <div class="modal-card history-card">
+        <div class="modal-header">
+          <h3 class="modal-title">Недавние загрузки</h3>
+          <button class="alert-close" id="closeHistoryBtn">&times;</button>
+        </div>
+        <div class="history-list" id="historyListContainer">
+          <div class="empty-history" id="emptyHistoryMsg">В этой сессии ещё нет загрузок</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# SoundCloud Downloader Dependencies
+yt-dlp>=2024.0.0
+static-ffmpeg>=2.5
+mutagen>=1.46.0

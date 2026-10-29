@@ -1,0 +1,31 @@
+# macOS System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+venv/
+.venv/
+env/
+
+# Downloaded files & temporary assets
+*.mp3
+*.m4a
+*.flac
+*.wav
+*.zip
+*.part
+*.ytdl
+downloads/
+
+# Build artifacts & symbols
+.build/
+*.dSYM/
+*.o
