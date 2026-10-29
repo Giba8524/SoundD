@@ -88,8 +88,8 @@
 
 ### 🪟 Инструкция для Windows:
 1. Скачайте архив **`SoundCloud-Downloader-Windows.zip`** из [Releases](https://github.com/Giba8524/SoundD/releases).
-2. Распакуйте папку в любое удобное место (например, `C:\Program Files` или рабочий стол).
-3. Запустите **`SoundCloud Downloader.exe`** (или `SoundCloud Downloader.bat`).
+2. Распакуйте архив в любое удобное место (например, на рабочий стол или в `C:\Program Files`).
+3. Запустите **`SoundCloud Downloader.exe`**. Всё работает сразу из коробки без консолей и без установки дополнительных программ!
 
 ---
 
