@@ -1,0 +1,64 @@
+name: Build Windows Standalone App
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app_windows.py'
+      - 'engine.py'
+      - 'server.py'
+      - 'static/**'
+      - 'requirements.txt'
+      - '.github/workflows/build-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows .exe (Edge WebView2)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies & PyInstaller
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller pywebview static-ffmpeg mutagen yt-dlp
+
+      - name: Build Standalone Windows Executable
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --windowed `
+            --name "SoundCloud Downloader" `
+            --add-data "static;static" `
+            --icon "icon.ico" `
+            app_windows.py
+
+      - name: Bundle Static FFmpeg Executable
+        shell: pwsh
+        run: |
+          python -c "import static_ffmpeg, shutil, os; f, p = static_ffmpeg.run.get_or_fetch_platform_executables_else_raise(); dest = os.path.join('dist', 'SoundCloud Downloader'); shutil.copy(f, os.path.join(dest, 'ffmpeg.exe')); shutil.copy(p, os.path.join(dest, 'ffprobe.exe')); print('FFmpeg bundled successfully')"
+
+      - name: Package Windows Release ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist/SoundCloud Downloader" -DestinationPath "SoundCloud-Downloader-Windows.zip" -Force
+
+      - name: Upload Windows Asset to Release v1.0.0
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          files: SoundCloud-Downloader-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

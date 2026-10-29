@@ -34,6 +34,8 @@ if not FFMPEG_PATH:
         shutil.which("ffmpeg.exe"),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "ffmpeg.exe"),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "ffmpeg.exe"),
+        os.path.join(os.path.dirname(sys.executable), "ffmpeg.exe"),
+        os.path.join(os.path.dirname(sys.executable), "bin", "ffmpeg.exe"),
         "C:\\ffmpeg\\bin\\ffmpeg.exe",
         "/Users/mihail/Library/Python/3.9/lib/python/site-packages/static_ffmpeg/bin/darwin_arm64/ffmpeg",
         "/opt/homebrew/bin/ffmpeg",
