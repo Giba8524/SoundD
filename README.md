@@ -1,22 +1,35 @@
-# 🎵 SoundCloud Downloader for macOS
+# 🎵 SoundCloud Downloader (SoundD) for macOS & Windows
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/Apple-Dark.svg" width="64" height="64" alt="macOS" />
+  <img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/Apple-Dark.svg" width="56" height="56" alt="macOS" />
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/Windows-Dark.svg" width="56" height="56" alt="Windows" />
 </p>
 
 <p align="center">
-  <b>Нативное, быстрое и стильное приложение для macOS для скачивания треков, плейлистов и альбомов с SoundCloud с поддержкой выбора качества, пакетного экспорта в ZIP и умного выравнивания громкости.</b>
+  <b>Быстрое, нативное и стильное кроссплатформенное приложение для macOS и Windows для скачивания треков, плейлистов и альбомов с SoundCloud с выбором качества, пакетным экспортом в ZIP и умным выравниванием громкости.</b>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-12.0%2B-blue?style=flat-square&logo=apple&logoColor=white" alt="macOS 12+" />
-  <img src="https://img.shields.io/badge/Architecture-Apple%20Silicon%20%7C%20Intel-black?style=flat-square" alt="Architecture" />
+  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows 10/11" />
   <img src="https://img.shields.io/badge/Swift-5.5%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift" />
   <img src="https://img.shields.io/badge/Python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/yt--dlp-Latest-FF0000?style=flat-square" alt="yt-dlp" />
-  <img src="https://img.shields.io/badge/FFmpeg-Static%20ARM64-green?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg" />
+  <img src="https://img.shields.io/badge/FFmpeg-Static-green?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg" />
   <img src="https://img.shields.io/badge/License-MIT-purple?style=flat-square" alt="License: MIT" />
 </p>
+
+---
+
+## 📥 Скачать приложение
+
+Готовые сборки доступны на странице **[Releases](https://github.com/Giba8524/SoundD/releases)**:
+
+| Платформа | Файл для загрузки | Описание |
+| :--- | :--- | :--- |
+| 🍏 **macOS** | [**`SoundCloud-Downloader-macOS.zip`**](https://github.com/Giba8524/SoundD/releases/latest) | Нативный `.app` бандл для Apple Silicon (M1/M2/M3/M4) и Intel |
+| 🪟 **Windows** | [**`SoundCloud-Downloader-Windows.zip`**](https://github.com/Giba8524/SoundD/releases/latest) | Автономное приложение `.exe` для Windows 10 и Windows 11 (x64) |
 
 ---
 
@@ -43,14 +56,12 @@
 * Слишком тихие треки (пик тише `-2.0 dB`) мягко и безопасно усиливаются до эталонных `-0.5 dB` без малейшего клиппинга.
 
 ### 📋 5. Умный буфер обмена (Smart Clipboard)
-* При переключении в окно приложения оно автоматически проверяет буфер обмена macOS.
+* При переключении в окно приложения оно автоматически проверяет буфер обмена.
 * Если скопирована ссылка на SoundCloud, появляется элегантный тост с предложением загрузить трек в один клик.
 
-### 🖥️ 6. Нативный дизайн macOS
-* Тёмная тема с глубоким эффектом размытия **Apple Glassmorphism** и типографикой SF Pro.
-* Нативные всплывающие уведомления macOS со звуковым подтверждением по завершении скачивания.
-* Кнопка **«Показать в Finder»** (`open -R`) для мгновенного перехода к скачанному файлу.
-* Выбор целевой папки через системное диалоговое окно macOS.
+### 🖥️ 6. Глубокая интеграция с операционной системой
+* **macOS:** Нативное окно Cocoa + WebKit, размытие Apple Glassmorphism, типографика SF Pro, интеграция с Finder (`open -R`) и AppleScript.
+* **Windows:** Нативное окно Edge WebView2 (Chromium), системные Toast-уведомления Windows, интеграция с Проводником (`explorer /select`) и системный выбор папок `FolderBrowserDialog`.
 
 ---
 
@@ -70,79 +81,87 @@
 
 ## 🚀 Установка и запуск
 
-### Вариант 1: Готовое приложение (Рекомендуется)
-1. Скачайте архив **`SoundCloud-Downloader-macOS.zip`** из вкладки [Releases](https://github.com/Giba8524/SoundD/releases).
+### 🍏 Инструкция для macOS:
+1. Скачайте архив **`SoundCloud-Downloader-macOS.zip`** из [Releases](https://github.com/Giba8524/SoundD/releases).
 2. Распакуйте архив и перетащите **`SoundCloud Downloader.app`** в папку **«Программы»** (`/Applications`).
 3. Запустите приложение через Launchpad или Spotlight!
 
-### Вариант 2: Запуск из папки проекта
-Дважды кликните по файлу:
-```text
-SoundCloud Downloader.app
-```
-или запустите скрипт установки в систему:
-```bash
-./install_to_applications.sh
-```
+### 🪟 Инструкция для Windows:
+1. Скачайте архив **`SoundCloud-Downloader-Windows.zip`** из [Releases](https://github.com/Giba8524/SoundD/releases).
+2. Распакуйте папку в любое удобное место (например, `C:\Program Files` или рабочий стол).
+3. Запустите **`SoundCloud Downloader.exe`** (или `SoundCloud Downloader.bat`).
 
 ---
 
 ## 🛠️ Сборка из исходников
 
-Для сборки требуется macOS 12+ с установленным `python3` и Xcode Command Line Tools (`xcode-select --install`).
-
+### Сборка на macOS:
 ```bash
-# Клонируйте репозиторий
 git clone https://github.com/Giba8524/SoundD.git
 cd SoundD
 
-# Установите зависимости Python
+# Установка зависимостей
 pip3 install -r requirements.txt
 
-# Запустите скрипт автоматической сборки
+# Сборка .app бандла
 ./build.sh
 
-# Чтобы также создать архив для релиза:
+# Сборка с созданием релизного ZIP-архива
 ./build.sh --dist
 ```
 
----
+### Сборка на Windows:
+```cmd
+git clone https://github.com/Giba8524/SoundD.git
+cd SoundD
 
-## 🏛️ Архитектура проекта
+:: Установка зависимостей
+pip install -r requirements.txt pywebview pyinstaller
 
-Приложение построено на гибридной легковесной архитектуре, сочетающей нативный Swift/Cocoa и мощный Python-бэкенд:
+:: Запуск из исходников
+python app_windows.py
 
-```mermaid
-graph TD
-    User["👤 Пользователь (macOS)"] -->|Взаимодействие| SwiftApp["🍎 Native Cocoa App (main.swift)"]
-    SwiftApp -->|Отображает через WKWebView| WebUI["🎨 Glassmorphic Web UI (HTML5 / CSS3 / JS)"]
-    SwiftApp -->|Запускает процесс в фоне| PyServer["⚡ Python HTTP Server (server.py :5678)"]
-    WebUI -->|REST API запросы| PyServer
-    PyServer -->|Парсинг и загрузка| Engine["⚙️ Core Engine (engine.py)"]
-    Engine -->|Быстрая гидратация HTML| SCHydration["SoundCloud Hydration API (0.3s)"]
-    Engine -->|Анализ стримов и форматов| YTDLP["yt-dlp Engine"]
-    Engine -->|Конвертация и Smart Boost| FFmpeg["Static FFmpeg (ARM64)"]
-    Engine -->|Вшивание метаданных и обложек| Mutagen["Mutagen (ID3 / Vorbis / MP4)"]
-    Engine -->|Уведомления macOS| Osascript["AppleScript / Notification Center"]
+:: Сборка автономного .exe файла через PyInstaller
+pyinstaller --noconfirm --windowed --name "SoundCloud Downloader" --add-data "static;static" --icon "icon.ico" app_windows.py
 ```
 
 ---
 
-## 📂 Структура файлов
+## 🏛️ Кроссплатформенная архитектура
+
+```mermaid
+graph TD
+    User["👤 Пользователь (macOS / Windows)"] --> UIBridge
+    subgraph UIBridge ["🖥️ Оболочка рабочего стола"]
+        SwiftApp["🍏 macOS: Native Cocoa Shell (main.swift)"]
+        WinApp["🪟 Windows: Edge WebView2 Shell (app_windows.py)"]
+    end
+    UIBridge --> WebUI["🎨 Glassmorphic Web UI (HTML5 / CSS3 / JS)"]
+    UIBridge -->|Запуск в фоне| PyServer["⚡ Python REST API (:5678)"]
+    WebUI -->|API запросы| PyServer
+    PyServer --> Engine["⚙️ Core Engine (engine.py)"]
+    Engine --> SCHydration["SoundCloud Hydration API (0.3s)"]
+    Engine --> YTDLP["yt-dlp Engine"]
+    Engine --> FFmpeg["Static FFmpeg (ARM64 / x86_64 / Win64)"]
+    Engine --> Mutagen["Mutagen (ID3 / Vorbis / MP4 tags)"]
+```
+
+---
+
+## 📂 Структура проекта
 
 ```text
-├── SoundCloud Downloader.app/   # Готовый бандл нативного macOS-приложения
-├── main.swift                   # Нативный код Cocoa + WebKit + меню macOS
-├── engine.py                    # Ядро загрузки, smart boost, конвертация и теги
+├── SoundCloud Downloader.app/   # Бандл приложения для macOS
+├── app_windows.py               # Лаунчер для Windows (Edge WebView2)
+├── SoundCloud Downloader.bat    # Быстрый скрипт запуска под Windows
+├── icon.ico                     # Нативная иконка для Windows
+├── main.swift                   # Нативный код Cocoa + WebKit для macOS
+├── engine.py                    # Кроссплатформенное ядро загрузки и конвертации
 ├── server.py                    # Локальный REST API сервер
-├── static/                      # Интерфейс (Glassmorphism, dark theme)
-│   ├── index.html               # Разметка интерфейса
-│   ├── style.css                # Стили macOS Big Sur / Sonoma Glassmorphism
-│   └── app.js                   # Клиентская логика, расчёт веса треков
+├── static/                      # Веб-интерфейс (Glassmorphism, dark theme)
+├── .github/workflows/           # Автоматическая сборка релизов для Windows и macOS
 ├── requirements.txt             # Зависимости Python
-├── build.sh                     # Скрипт компиляции и сборки релиза
-├── install_to_applications.sh   # Скрипт установки в /Applications
-├── start.sh                     # Скрипт запуска для отладки
+├── build.sh                     # Скрипт сборки под macOS
 └── LICENSE                      # Лицензия MIT
 ```
 
@@ -151,4 +170,3 @@ graph TD
 ## 📄 Лицензия
 
 Проект распространяется под открытой лицензией [MIT](LICENSE).
-Вы можете свободно использовать, модифицировать и распространять данный проект.

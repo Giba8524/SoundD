@@ -28,12 +28,16 @@ except Exception as e:
     pass
 
 if not FFMPEG_PATH:
-    # Check default fallback locations
+    # Check default fallback locations for macOS and Windows
     potential_paths = [
+        shutil.which("ffmpeg"),
+        shutil.which("ffmpeg.exe"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "ffmpeg.exe"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "ffmpeg.exe"),
+        "C:\\ffmpeg\\bin\\ffmpeg.exe",
         "/Users/mihail/Library/Python/3.9/lib/python/site-packages/static_ffmpeg/bin/darwin_arm64/ffmpeg",
         "/opt/homebrew/bin/ffmpeg",
-        "/usr/local/bin/ffmpeg",
-        shutil.which("ffmpeg")
+        "/usr/local/bin/ffmpeg"
     ]
     for p in potential_paths:
         if p and os.path.exists(p):
@@ -614,13 +618,26 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         }
 
 def trigger_macos_notification(title: str, subtitle: str, message: str):
-    """Fire a native macOS notification via osascript."""
+    """Fire a native OS notification (macOS or Windows)."""
     try:
-        clean_title = title.replace('"', '\\"')
-        clean_sub = subtitle.replace('"', '\\"')
-        clean_msg = message.replace('"', '\\"')
-        script = f'display notification "{clean_msg}" with title "{clean_title}" subtitle "{clean_sub}" sound name "Glass"'
-        subprocess.run(["osascript", "-e", script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if sys.platform == "darwin":
+            clean_title = title.replace('"', '\\"')
+            clean_sub = subtitle.replace('"', '\\"')
+            clean_msg = message.replace('"', '\\"')
+            script = f'display notification "{clean_msg}" with title "{clean_title}" subtitle "{clean_sub}" sound name "Glass"'
+            subprocess.run(["osascript", "-e", script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif sys.platform == "win32":
+            # Native Windows Toast Notification via PowerShell
+            ps_script = (
+                "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; "
+                "$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); "
+                "$textNodes = $template.GetElementsByTagName('text'); "
+                f"$textNodes.Item(0).AppendChild($template.CreateTextNode('{title}')) > $null; "
+                f"$textNodes.Item(1).AppendChild($template.CreateTextNode('{message}')) > $null; "
+                "$toast = [Windows.UI.Notifications.ToastNotification]::new($template); "
+                "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('SoundCloud Downloader').Show($toast);"
+            )
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
 
