@@ -71,7 +71,7 @@
 ## 🚀 Установка и запуск
 
 ### Вариант 1: Готовое приложение (Рекомендуется)
-1. Скачайте архив **`SoundCloud-Downloader-macOS.zip`** из вкладки [Releases](../../releases).
+1. Скачайте архив **`SoundCloud-Downloader-macOS.zip`** из вкладки [Releases](https://github.com/Giba8524/SoundD/releases).
 2. Распакуйте архив и перетащите **`SoundCloud Downloader.app`** в папку **«Программы»** (`/Applications`).
 3. Запустите приложение через Launchpad или Spotlight!
 
@@ -93,8 +93,8 @@ SoundCloud Downloader.app
 
 ```bash
 # Клонируйте репозиторий
-git clone https://github.com/<your-username>/soundcloud-downloader-macos.git
-cd soundcloud-downloader-macos
+git clone https://github.com/Giba8524/SoundD.git
+cd SoundD
 
 # Установите зависимости Python
 pip3 install -r requirements.txt
