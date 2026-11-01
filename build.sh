@@ -38,7 +38,10 @@ cp -f "${PROJECT_DIR}/engine.py" "${RESOURCES_DIR}/engine.py"
 cp -f "${PROJECT_DIR}/server.py" "${RESOURCES_DIR}/server.py"
 cp -rf "${PROJECT_DIR}/static/"* "${RESOURCES_DIR}/static/"
 
-if [ -f "${RESOURCES_DIR}/AppIcon.icns" ]; then
+if [ -f "${PROJECT_DIR}/AppIcon.icns" ]; then
+  cp -f "${PROJECT_DIR}/AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns"
+  echo "🎨 AppIcon synchronized."
+elif [ -f "${RESOURCES_DIR}/AppIcon.icns" ]; then
   echo "🎨 AppIcon preserved."
 fi
 

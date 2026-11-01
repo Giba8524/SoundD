@@ -1,7 +1,7 @@
 // SoundCloud Downloader Web App Client Logic
 
 let currentMediaInfo = null;
-let selectedQuality = "mp3_320";
+let selectedQuality = "direct_stream";
 let playlistFormat = "zip"; // "zip" or "folder"
 let activeTaskId = null;
 let pollInterval = null;
@@ -50,6 +50,33 @@ const downloadTrackBtnText = document.getElementById("downloadTrackBtnText");
 const trackEmbedArtwork = document.getElementById("trackEmbedArtwork");
 const trackEmbedMetadata = document.getElementById("trackEmbedMetadata");
 const trackNormalizeQuiet = document.getElementById("trackNormalizeQuiet");
+const trackPlayBtn = document.getElementById("trackPlayBtn");
+
+// Floating Audio Mini-Player Elements
+const audioMiniPlayer = document.getElementById("audioMiniPlayer");
+const previewAudio = document.getElementById("previewAudio");
+const playerThumb = document.getElementById("playerThumb");
+const playerWaveIndicator = document.getElementById("playerWaveIndicator");
+const playerTitle = document.getElementById("playerTitle");
+const playerArtist = document.getElementById("playerArtist");
+const playerPlayPauseBtn = document.getElementById("playerPlayPauseBtn");
+const playerLoadingSpinner = document.getElementById("playerLoadingSpinner");
+const playerPlayIcon = document.getElementById("playerPlayIcon");
+const playerPauseIcon = document.getElementById("playerPauseIcon");
+const playerCurrentTime = document.getElementById("playerCurrentTime");
+const playerTotalTime = document.getElementById("playerTotalTime");
+const playerSeekBar = document.getElementById("playerSeekBar");
+const playerSeekProgress = document.getElementById("playerSeekProgress");
+const playerVolumeBtn = document.getElementById("playerVolumeBtn");
+const volumeIcon = document.getElementById("volumeIcon");
+const muteIcon = document.getElementById("muteIcon");
+const playerVolumeSlider = document.getElementById("playerVolumeSlider");
+const playerCloseBtn = document.getElementById("playerCloseBtn");
+
+let currentPlayingUrl = null;
+let currentPlayingIndex = null;
+let isSeekingAudio = false;
+let lastVolume = 0.8;
 
 // Playlist Elements
 const playlistArtwork = document.getElementById("playlistArtwork");
@@ -249,6 +276,12 @@ async function fetchMediaInfo() {
 function renderMediaInfo(info) {
   resultSection.style.display = "block";
 
+  const qMap = info.qualities || {};
+  const qKeys = Object.keys(qMap);
+  if (!qMap[selectedQuality]) {
+    selectedQuality = qKeys.includes("direct_stream") ? "direct_stream" : (qKeys[0] || "direct_stream");
+  }
+
   if (info.is_playlist) {
     trackView.style.display = "none";
     playlistView.style.display = "flex";
@@ -262,53 +295,38 @@ function renderMediaInfo(info) {
   resultSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-// Calculate estimated file size in bytes
+// Calculate estimated file size in bytes based on true stream bitrates
 function calculateEstimatedSizeBytes(qualityKey, durationSeconds, trackCount = 1, sourceBitrate = 160) {
   if (!durationSeconds || durationSeconds <= 0) return 0;
 
-  let bps = (320 * 1000) / 8; // Default 320 kbps (40,000 bytes/sec)
-  let overheadPerTrack = 450 * 1024; // 450 KB artwork + ID3 metadata
+  let br = 160;
+  const qItem = (currentMediaInfo?.qualities && currentMediaInfo.qualities[qualityKey]) || (availableQualities && availableQualities[qualityKey]);
 
-  switch (qualityKey) {
-    case "direct_stream": {
-      const br = sourceBitrate > 0 ? sourceBitrate : 160;
-      bps = (br * 1000) / 8;
-      overheadPerTrack = 350 * 1024;
-      break;
-    }
-    case "mp3_320":
-      bps = (320 * 1000) / 8;
-      overheadPerTrack = 450 * 1024;
-      break;
-    case "mp3_256":
-      bps = (256 * 1000) / 8;
-      overheadPerTrack = 450 * 1024;
-      break;
-    case "mp3_128":
-      bps = (128 * 1000) / 8;
-      overheadPerTrack = 400 * 1024;
-      break;
-    case "m4a_256":
-      bps = (256 * 1000) / 8;
-      overheadPerTrack = 350 * 1024;
-      break;
-    case "flac":
-      // FLAC compression of standard CD audio typically averages ~850 kbps
-      bps = (850 * 1000) / 8;
-      overheadPerTrack = 500 * 1024;
-      break;
-    case "wav":
-      // Uncompressed 16-bit 44.1 kHz stereo PCM (1411.2 kbps)
-      bps = 44100 * 2 * 2;
-      overheadPerTrack = 44; // No embedded artwork in WAV container
-      break;
-    default:
-      bps = (320 * 1000) / 8;
-      overheadPerTrack = 450 * 1024;
+  if (qItem && qItem.bitrate) {
+    br = qItem.bitrate;
+  } else if (qualityKey === "direct_stream") {
+    br = sourceBitrate > 0 ? sourceBitrate : 160;
+  } else if (qualityKey === "mp3_128") {
+    br = 128;
+  } else if (qualityKey === "mp3_source" || qualityKey === "mp3_160") {
+    br = Math.min(sourceBitrate || 160, 160);
+  } else if (qualityKey === "mp3_256" || qualityKey === "m4a_256") {
+    br = 256;
+  } else if (qualityKey === "mp3_320") {
+    br = 320;
+  } else if (qualityKey === "flac") {
+    br = 850;
+  } else if (qualityKey === "wav") {
+    br = 1411;
   }
 
-  const rawBytes = (bps * durationSeconds) + (overheadPerTrack * Math.max(1, trackCount));
-  return Math.round(rawBytes);
+  // Exact audio stream data: (bitrate kbps * 1000 / 8) * duration seconds
+  const audioBytes = (br * 1000 / 8) * durationSeconds;
+
+  // Real ID3/artwork metadata overhead: approx 35 KB per track (realistic)
+  const overhead = 35 * 1024 * Math.max(1, trackCount);
+
+  return Math.round(audioBytes + overhead);
 }
 
 // Format bytes into human-readable Russian string (e.g. "8.4 МБ", "118 МБ", "1.2 ГБ")
@@ -386,6 +404,20 @@ function renderTrackView(info) {
     updateTrackButtonText();
   }, false);
 
+  if (trackPlayBtn) {
+    trackPlayBtn.onclick = (e) => {
+      e.stopPropagation();
+      playTrackPreview({
+        url: info.url,
+        title: info.title,
+        uploader: info.uploader,
+        artwork: artwork,
+        duration: info.duration,
+        index: null
+      });
+    };
+  }
+
   updateTrackButtonText();
 }
 
@@ -427,11 +459,26 @@ function renderPlaylistView(info) {
   tracks.forEach((t) => {
     const row = document.createElement("div");
     row.className = "track-row";
+    row.dataset.index = t.index;
+    row.dataset.url = t.url;
+    if (currentPlayingIndex === t.index && !previewAudio.paused) {
+      row.classList.add("is-playing");
+    }
+
     row.innerHTML = `
       <label class="custom-checkbox">
         <input type="checkbox" class="track-select-cb" data-index="${t.index}" checked>
         <span class="checkmark"></span>
       </label>
+      <button class="track-play-inline-btn" title="Слушать превью" data-index="${t.index}">
+        <svg class="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="6 3 20 12 6 21 6 3"></polygon>
+        </svg>
+        <svg class="pause-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+          <rect x="6" y="4" width="4" height="16"></rect>
+          <rect x="14" y="4" width="4" height="16"></rect>
+        </svg>
+      </button>
       <span class="track-num">${t.index}</span>
       <div class="track-row-info">
         <span class="track-row-title" title="${t.title}">${t.title}</span>
@@ -439,6 +486,42 @@ function renderPlaylistView(info) {
       </div>
       <span class="track-row-dur">${t.duration_formatted}</span>
     `;
+
+    // Double-click row to preview
+    row.addEventListener("dblclick", (e) => {
+      if (e.target.closest(".custom-checkbox")) return;
+      playTrackPreview({
+        url: t.url,
+        title: t.title,
+        uploader: t.uploader,
+        artwork: t.artwork || artwork,
+        duration: t.duration,
+        duration_formatted: t.duration_formatted,
+        index: t.index
+      });
+    });
+
+    // Inline play button click
+    const inlineBtn = row.querySelector(".track-play-inline-btn");
+    inlineBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      playTrackPreview({
+        url: t.url,
+        title: t.title,
+        uploader: t.uploader,
+        artwork: t.artwork || artwork,
+        duration: t.duration,
+        duration_formatted: t.duration_formatted,
+        index: t.index
+      });
+    });
+
+    // Checkbox container stopPropagation to prevent accidental double-click / preview triggers
+    const cb = row.querySelector(".custom-checkbox");
+    cb.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
     tracklistItems.appendChild(row);
   });
 
@@ -566,29 +649,30 @@ function updateQualityNotice(qualityKey, isPlaylist = false) {
   const src = currentMediaInfo?.source_info;
   const srcLabel = src?.label || "160 kbps (AAC)";
 
-  if (qualityKey === "flac") {
-    noticeText.textContent = `ℹ️ Исходный аудиопоток на SoundCloud — ${srcLabel}. Выбранный FLAC сохранит аудио без дополнительного сжатия, но качество будет соответствовать качеству источника SoundCloud.`;
+  if (qualityKey === "direct_stream") {
+    noticeText.textContent = `⚡ Прямое сохранение исходного потока (${srcLabel}) 1:1 без пережатия. Нулевая потеря качества и моментальная загрузка!`;
     noticeBox.style.display = "flex";
-    if (!isPlaylist && trackEmbedArtwork) {
-      trackEmbedArtwork.disabled = false;
-    }
+  } else if (qualityKey === "mp3_source") {
+    noticeText.textContent = `🎵 Преобразование в универсальный формат MP3 с сохранением битрейта источника (${srcLabel}) для гарантированной совместимости с любыми плеерами.`;
+    noticeBox.style.display = "flex";
+  } else if (qualityKey === "flac") {
+    noticeText.textContent = `💎 Студийный оригинал автора в несжатом Lossless FLAC.`;
+    noticeBox.style.display = "flex";
   } else if (qualityKey === "wav") {
-    noticeText.textContent = `ℹ️ WAV — несжатый PCM формат. Обратите внимание: WAV-контейнер не поддерживает встроенные обложки внутри аудиофайла.`;
+    noticeText.textContent = `🔊 Студийный 16-bit PCM звук. Обратите внимание: WAV-контейнер не поддерживает встроенные ID3-обложки.`;
     noticeBox.style.display = "flex";
-    if (!isPlaylist && trackEmbedArtwork) {
-      trackEmbedArtwork.checked = false;
-      trackEmbedArtwork.disabled = true;
-    }
-  } else if (qualityKey === "direct_stream") {
-    noticeText.textContent = `⚡ Прямое скачивание оригинального потока (${srcLabel}) без перекодирования. Нулевая потеря качества и моментальная скорость!`;
+  } else if (qualityKey === "mp3_128") {
+    noticeText.textContent = `📦 Стандартный битрейт MP3 128 kbps с минимальным размером файла.`;
     noticeBox.style.display = "flex";
-    if (!isPlaylist && trackEmbedArtwork) {
-      trackEmbedArtwork.disabled = false;
-      trackEmbedArtwork.checked = true;
-    }
   } else {
     noticeBox.style.display = "none";
-    if (!isPlaylist && trackEmbedArtwork) {
+  }
+
+  if (!isPlaylist && trackEmbedArtwork) {
+    if (qualityKey === "wav") {
+      trackEmbedArtwork.checked = false;
+      trackEmbedArtwork.disabled = true;
+    } else {
       trackEmbedArtwork.disabled = false;
       trackEmbedArtwork.checked = true;
     }
@@ -953,6 +1037,208 @@ setInterval(() => {
     checkClipboardForSoundCloud();
   }
 }, 2500);
+
+// ==============================================================================
+// Floating Audio Mini-Player Controller
+// ==============================================================================
+function formatAudioTime(seconds) {
+  if (isNaN(seconds) || seconds < 0) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+async function playTrackPreview(trackObj) {
+  if (!trackObj || !trackObj.url) return;
+
+  const sameTrack = currentPlayingUrl === trackObj.url;
+
+  if (sameTrack) {
+    if (previewAudio.paused) {
+      previewAudio.play().catch(console.warn);
+    } else {
+      previewAudio.pause();
+    }
+    return;
+  }
+
+  // Switch to new track
+  currentPlayingUrl = trackObj.url;
+  currentPlayingIndex = trackObj.index !== undefined ? trackObj.index : null;
+
+  playerTitle.textContent = trackObj.title || "SoundCloud Трек";
+  playerArtist.textContent = trackObj.uploader || "SoundCloud Артист";
+  const art = trackObj.artwork || currentMediaInfo?.artwork || "https://a-v2.sndcdn.com/assets/images/default/avatar-f000000000.png";
+  playerThumb.src = art;
+
+  playerCurrentTime.textContent = "0:00";
+  playerTotalTime.textContent = trackObj.duration_formatted || (trackObj.duration ? formatAudioTime(trackObj.duration) : "--:--");
+  playerSeekBar.value = 0;
+  playerSeekProgress.style.width = "0%";
+
+  audioMiniPlayer.style.display = "flex";
+  updatePlayingUIState(false, true);
+
+  try {
+    const res = await fetch(`/api/stream_info?url=${encodeURIComponent(trackObj.url)}`);
+    const data = await res.json();
+    if (!res.ok || !data.stream_url) {
+      throw new Error(data.error || "Не удалось получить аудиопоток трека");
+    }
+
+    if (currentPlayingUrl !== trackObj.url) return; // Discard if user clicked another track during fetch
+
+    previewAudio.src = data.stream_url;
+    previewAudio.currentTime = 0;
+    await previewAudio.play();
+  } catch (err) {
+    console.error("Audio preview error:", err);
+    updatePlayingUIState(false, false);
+    showError(err.message || "Ошибка загрузки аудиопотока для предпрослушивания");
+  }
+}
+
+function updatePlayingUIState(isPlaying, isLoading) {
+  // Update mini-player controls
+  if (isLoading) {
+    playerLoadingSpinner.style.display = "block";
+    playerPlayIcon.style.display = "none";
+    playerPauseIcon.style.display = "none";
+    playerWaveIndicator.style.display = "none";
+  } else if (isPlaying) {
+    playerLoadingSpinner.style.display = "none";
+    playerPlayIcon.style.display = "none";
+    playerPauseIcon.style.display = "block";
+    playerWaveIndicator.style.display = "flex";
+  } else {
+    playerLoadingSpinner.style.display = "none";
+    playerPlayIcon.style.display = "block";
+    playerPauseIcon.style.display = "none";
+    playerWaveIndicator.style.display = "none";
+  }
+
+  // Update single track artwork play button
+  if (trackPlayBtn) {
+    if (isPlaying && (!currentMediaInfo?.is_playlist || currentPlayingUrl === currentMediaInfo?.url)) {
+      trackPlayBtn.classList.add("is-playing");
+    } else {
+      trackPlayBtn.classList.remove("is-playing");
+    }
+  }
+
+  // Update playlist rows
+  const rows = tracklistItems.querySelectorAll(".track-row");
+  rows.forEach((row) => {
+    const rowIdx = parseInt(row.dataset.index, 10);
+    const isThisTrack = currentPlayingIndex !== null && rowIdx === currentPlayingIndex;
+    if (isThisTrack && isPlaying) {
+      row.classList.add("is-playing");
+    } else {
+      row.classList.remove("is-playing");
+    }
+  });
+}
+
+function stopAudioPreview() {
+  previewAudio.pause();
+  previewAudio.src = "";
+  currentPlayingUrl = null;
+  currentPlayingIndex = null;
+  audioMiniPlayer.style.display = "none";
+  updatePlayingUIState(false, false);
+}
+
+// Preview Audio Event Listeners
+previewAudio.addEventListener("timeupdate", () => {
+  if (isSeekingAudio) return;
+  const cur = previewAudio.currentTime || 0;
+  const dur = previewAudio.duration || 0;
+  playerCurrentTime.textContent = formatAudioTime(cur);
+  if (dur > 0) {
+    const pct = (cur / dur) * 100;
+    playerSeekBar.value = pct;
+    playerSeekProgress.style.width = `${pct}%`;
+  }
+});
+
+previewAudio.addEventListener("loadedmetadata", () => {
+  playerTotalTime.textContent = formatAudioTime(previewAudio.duration || 0);
+});
+
+previewAudio.addEventListener("ended", () => {
+  updatePlayingUIState(false, false);
+  playerSeekBar.value = 0;
+  playerSeekProgress.style.width = "0%";
+  playerCurrentTime.textContent = "0:00";
+});
+
+previewAudio.addEventListener("play", () => updatePlayingUIState(true, false));
+previewAudio.addEventListener("pause", () => updatePlayingUIState(false, false));
+previewAudio.addEventListener("waiting", () => updatePlayingUIState(false, true));
+previewAudio.addEventListener("playing", () => updatePlayingUIState(true, false));
+previewAudio.addEventListener("error", (e) => {
+  console.warn("Audio element playback error:", e);
+  updatePlayingUIState(false, false);
+});
+
+// Mini-Player Control Listeners
+playerPlayPauseBtn.addEventListener("click", () => {
+  if (previewAudio.paused) {
+    previewAudio.play().catch(console.warn);
+  } else {
+    previewAudio.pause();
+  }
+});
+
+playerSeekBar.addEventListener("input", () => {
+  isSeekingAudio = true;
+  const dur = previewAudio.duration || 0;
+  const pct = parseFloat(playerSeekBar.value);
+  playerSeekProgress.style.width = `${pct}%`;
+  if (dur > 0) {
+    playerCurrentTime.textContent = formatAudioTime((pct / 100) * dur);
+  }
+});
+
+playerSeekBar.addEventListener("change", () => {
+  const dur = previewAudio.duration || 0;
+  const pct = parseFloat(playerSeekBar.value);
+  if (dur > 0) {
+    previewAudio.currentTime = (pct / 100) * dur;
+  }
+  isSeekingAudio = false;
+});
+
+playerVolumeSlider.addEventListener("input", () => {
+  const vol = parseFloat(playerVolumeSlider.value);
+  previewAudio.volume = vol;
+  if (vol === 0) {
+    volumeIcon.style.display = "none";
+    muteIcon.style.display = "block";
+  } else {
+    volumeIcon.style.display = "block";
+    muteIcon.style.display = "none";
+    lastVolume = vol;
+  }
+});
+
+playerVolumeBtn.addEventListener("click", () => {
+  if (previewAudio.volume > 0) {
+    lastVolume = previewAudio.volume;
+    previewAudio.volume = 0;
+    playerVolumeSlider.value = 0;
+    volumeIcon.style.display = "none";
+    muteIcon.style.display = "block";
+  } else {
+    const restore = lastVolume > 0 ? lastVolume : 0.8;
+    previewAudio.volume = restore;
+    playerVolumeSlider.value = restore;
+    volumeIcon.style.display = "block";
+    muteIcon.style.display = "none";
+  }
+});
+
+playerCloseBtn.addEventListener("click", stopAudioPreview);
 
 // Initial Run
 initSystem();

@@ -9,6 +9,8 @@ import sys
 import json
 import urllib.parse
 import subprocess
+import shutil
+import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 import engine
@@ -93,6 +95,25 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/history":
             self._set_headers()
             self.wfile.write(json.dumps({"history": history}).encode("utf-8"))
+            return
+
+        elif path == "/api/stream_info":
+            track_url = query.get("url", [""])[0]
+            if not track_url:
+                self._set_headers(400)
+                self.wfile.write(json.dumps({"error": "URL обязателен"}).encode("utf-8"))
+                return
+            try:
+                stream_info = engine.get_stream_info(track_url)
+                if not stream_info or not stream_info.get("stream_url"):
+                    self._set_headers(404)
+                    self.wfile.write(json.dumps({"error": "Не удалось получить аудиопоток"}).encode("utf-8"))
+                    return
+                self._set_headers()
+                self.wfile.write(json.dumps(stream_info).encode("utf-8"))
+            except Exception as e:
+                self._set_headers(500)
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
             return
 
         elif path == "/api/file":

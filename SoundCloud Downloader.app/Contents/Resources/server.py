@@ -9,12 +9,17 @@ import sys
 import json
 import urllib.parse
 import subprocess
+import shutil
+import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 import engine
 
 PORT = 5678
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(sys.executable)))
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 # Keep track of downloaded history
@@ -90,6 +95,25 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/history":
             self._set_headers()
             self.wfile.write(json.dumps({"history": history}).encode("utf-8"))
+            return
+
+        elif path == "/api/stream_info":
+            track_url = query.get("url", [""])[0]
+            if not track_url:
+                self._set_headers(400)
+                self.wfile.write(json.dumps({"error": "URL обязателен"}).encode("utf-8"))
+                return
+            try:
+                stream_info = engine.get_stream_info(track_url)
+                if not stream_info or not stream_info.get("stream_url"):
+                    self._set_headers(404)
+                    self.wfile.write(json.dumps({"error": "Не удалось получить аудиопоток"}).encode("utf-8"))
+                    return
+                self._set_headers()
+                self.wfile.write(json.dumps(stream_info).encode("utf-8"))
+            except Exception as e:
+                self._set_headers(500)
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
             return
 
         elif path == "/api/file":
@@ -183,7 +207,12 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
             body = self._read_json_body()
             file_path = body.get("path")
             if file_path and os.path.exists(file_path):
-                subprocess.run(["open", "-R", file_path], check=False)
+                if sys.platform == "darwin":
+                    subprocess.run(["open", "-R", file_path], check=False)
+                elif sys.platform == "win32":
+                    subprocess.run(["explorer", f"/select,{os.path.normpath(file_path)}"], check=False)
+                else:
+                    subprocess.run(["xdg-open", os.path.dirname(file_path)], check=False)
                 self._set_headers()
                 self.wfile.write(json.dumps({"status": "ok"}).encode("utf-8"))
             else:
@@ -193,15 +222,45 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
 
         elif path == "/api/choose_directory":
             try:
-                script = 'POSIX path of (choose folder with prompt "Выберите папку для сохранения музыки SoundCloud:")'
-                res = subprocess.run(
-                    ["osascript", "-e", script],
-                    capture_output=True,
-                    text=True,
-                    check=False
-                )
-                if res.returncode == 0 and res.stdout.strip():
-                    folder = res.stdout.strip().rstrip("/")
+                folder = None
+                if sys.platform == "darwin":
+                    script = 'POSIX path of (choose folder with prompt "Выберите папку для сохранения музыки SoundCloud:")'
+                    res = subprocess.run(
+                        ["osascript", "-e", script],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    if res.returncode == 0 and res.stdout.strip():
+                        folder = res.stdout.strip().rstrip("/")
+                elif sys.platform == "win32":
+                    ps_cmd = (
+                        "Add-Type -AssemblyName System.Windows.Forms; "
+                        "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog; "
+                        "$dialog.Description = 'Выберите папку для сохранения музыки SoundCloud'; "
+                        "$dialog.ShowNewFolderButton = $true; "
+                        "if ($dialog.ShowDialog() -eq 'OK') { Write-Output $dialog.SelectedPath }"
+                    )
+                    res = subprocess.run(
+                        ["powershell", "-NoProfile", "-Command", ps_cmd],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    if res.returncode == 0 and res.stdout.strip():
+                        folder = res.stdout.strip()
+                else:
+                    try:
+                        import tkinter as tk
+                        from tkinter import filedialog
+                        root = tk.Tk()
+                        root.withdraw()
+                        folder = filedialog.askdirectory(title="Выберите папку для сохранения музыки SoundCloud")
+                        root.destroy()
+                    except Exception:
+                        pass
+
+                if folder:
                     self._set_headers()
                     self.wfile.write(json.dumps({"path": folder}).encode("utf-8"))
                 else:

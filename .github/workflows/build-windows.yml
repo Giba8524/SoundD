@@ -1,16 +1,11 @@
-name: Build Windows Standalone App
+name: Build and Release Apps
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'app_windows.py'
-      - 'engine.py'
-      - 'server.py'
-      - 'static/**'
-      - 'requirements.txt'
-      - '.github/workflows/build-windows.yml'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -55,10 +50,72 @@ jobs:
         run: |
           Compress-Archive -Path "dist/SoundCloud Downloader" -DestinationPath "SoundCloud-Downloader-Windows.zip" -Force
 
-      - name: Upload Windows Asset to Release v1.0.0
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: SoundCloud-Downloader-Windows.zip
+
+  build-macos:
+    name: Build macOS .app Bundle
+    runs-on: macos-13
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build & Package .app Bundle
+        run: |
+          chmod +x build.sh
+          ./build.sh --dist
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: SoundCloud-Downloader-macOS.zip
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-build
+
+      - name: Determine Tag
+        id: release_tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v1.1.0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish Release Assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          files: SoundCloud-Downloader-Windows.zip
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: SoundCloud Downloader ${{ steps.release_tag.outputs.tag }}
+          files: |
+            SoundCloud-Downloader-Windows.zip
+            SoundCloud-Downloader-macOS.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

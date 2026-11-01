@@ -28,12 +28,22 @@ except Exception as e:
     pass
 
 if not FFMPEG_PATH:
-    # Check default fallback locations
+    # Check default fallback locations for macOS, Windows, and Linux
     potential_paths = [
-        "/Users/mihail/Library/Python/3.9/lib/python/site-packages/static_ffmpeg/bin/darwin_arm64/ffmpeg",
+        shutil.which("ffmpeg"),
+        shutil.which("ffmpeg.exe"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "ffmpeg.exe"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "ffmpeg.exe"),
+        os.path.join(os.path.dirname(sys.executable), "ffmpeg.exe"),
+        os.path.join(os.path.dirname(sys.executable), "bin", "ffmpeg.exe"),
+        "C:\\ffmpeg\\bin\\ffmpeg.exe",
+        os.path.expanduser("~/Library/Python/3.9/lib/python/site-packages/static_ffmpeg/bin/darwin_arm64/ffmpeg"),
+        os.path.expanduser("~/Library/Python/3.10/lib/python/site-packages/static_ffmpeg/bin/darwin_arm64/ffmpeg"),
+        os.path.expanduser("~/Library/Python/3.11/lib/python/site-packages/static_ffmpeg/bin/darwin_arm64/ffmpeg"),
+        os.path.expanduser("~/Library/Python/3.12/lib/python/site-packages/static_ffmpeg/bin/darwin_arm64/ffmpeg"),
         "/opt/homebrew/bin/ffmpeg",
         "/usr/local/bin/ffmpeg",
-        shutil.which("ffmpeg")
+        "/usr/bin/ffmpeg"
     ]
     for p in potential_paths:
         if p and os.path.exists(p):
@@ -42,7 +52,7 @@ if not FFMPEG_PATH:
 
 import yt_dlp
 
-QUALITY_CONFIGS = {
+ALL_QUALITY_CONFIGS = {
     "direct_stream": {
         "label": "Оригинальный поток (Direct Stream)",
         "sublabel": "Без перекодирования (1:1 с SoundCloud)",
@@ -50,16 +60,28 @@ QUALITY_CONFIGS = {
         "codec": "copy",
         "quality": "0",
         "ext": "m4a",
-        "lossless": False
+        "lossless": False,
+        "bitrate": 160
+    },
+    "mp3_source": {
+        "label": "MP3 (Совместимый)",
+        "sublabel": "Универсальный MP3 без потери битрейта источника",
+        "badge": "Популярный MP3",
+        "codec": "mp3",
+        "quality": "160",
+        "ext": "mp3",
+        "lossless": False,
+        "bitrate": 160
     },
     "mp3_320": {
         "label": "MP3 320 kbps (Максимальный MP3)",
-        "sublabel": "Рекомендуется для плееров и авто",
-        "badge": "Популярный",
+        "sublabel": "Студийный битрейт MP3",
+        "badge": "320 kbps",
         "codec": "mp3",
         "quality": "320",
         "ext": "mp3",
-        "lossless": False
+        "lossless": False,
+        "bitrate": 320
     },
     "mp3_256": {
         "label": "MP3 256 kbps (Высокое качество)",
@@ -68,16 +90,28 @@ QUALITY_CONFIGS = {
         "codec": "mp3",
         "quality": "256",
         "ext": "mp3",
-        "lossless": False
+        "lossless": False,
+        "bitrate": 256
     },
     "mp3_128": {
-        "label": "MP3 128 kbps (Стандартный стрим)",
+        "label": "MP3 128 kbps (Компактный)",
         "sublabel": "Базовое качество SoundCloud",
-        "badge": "Стандарт",
+        "badge": "Экономия",
         "codec": "mp3",
         "quality": "128",
         "ext": "mp3",
-        "lossless": False
+        "lossless": False,
+        "bitrate": 128
+    },
+    "m4a_aac": {
+        "label": "M4A / AAC (Apple формат)",
+        "sublabel": "Для Apple Music, iPhone и Mac",
+        "badge": "Apple",
+        "codec": "m4a",
+        "quality": "160",
+        "ext": "m4a",
+        "lossless": False,
+        "bitrate": 160
     },
     "m4a_256": {
         "label": "M4A / AAC 256 kbps (Apple формат)",
@@ -86,27 +120,158 @@ QUALITY_CONFIGS = {
         "codec": "m4a",
         "quality": "256",
         "ext": "m4a",
-        "lossless": False
+        "lossless": False,
+        "bitrate": 256
     },
     "flac": {
         "label": "FLAC (Lossless контейнер)",
-        "sublabel": "Аудио без дополнительного сжатия",
+        "sublabel": "Студийный оригинал без дополнительного сжатия",
         "badge": "Lossless",
         "codec": "flac",
         "quality": "0",
         "ext": "flac",
-        "lossless": True
+        "lossless": True,
+        "bitrate": 850
     },
     "wav": {
         "label": "WAV (Студийный несжатый)",
-        "sublabel": "Несжатый PCM звук (без обложки)",
+        "sublabel": "Несжатый 16-bit 44.1 kHz PCM",
         "badge": "PCM",
         "codec": "wav",
         "quality": "0",
         "ext": "wav",
-        "lossless": True
+        "lossless": True,
+        "bitrate": 1411
     }
 }
+
+QUALITY_CONFIGS = ALL_QUALITY_CONFIGS
+
+def build_available_qualities(source_info: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Dynamically generates realistic quality choices based on the actual stream available on SoundCloud.
+    Avoids deceiving users with fake FLAC/WAV or inflated 320 kbps when the source stream is lossy 128 or 160 kbps.
+    """
+    if not source_info:
+        source_info = {}
+
+    has_orig = bool(source_info.get("has_original", False))
+    bitrate = int(source_info.get("bitrate", 160) or 160)
+    codec = str(source_info.get("codec") or "MP3").upper()
+
+    # 1. Genuine studio master provided by artist
+    if has_orig:
+        return {
+            "direct_stream": {
+                "label": "Оригинал (Studio Master)",
+                "sublabel": "Исходный файл автора 1:1 без пережатия",
+                "badge": "Мастер 1:1",
+                "codec": "copy",
+                "quality": "0",
+                "ext": "m4a",
+                "lossless": True,
+                "bitrate": max(bitrate, 320)
+            },
+            "flac": {
+                "label": "FLAC (Lossless)",
+                "sublabel": "Сжатие без потерь",
+                "badge": "Lossless",
+                "codec": "flac",
+                "quality": "0",
+                "ext": "flac",
+                "lossless": True,
+                "bitrate": 850
+            },
+            "wav": {
+                "label": "WAV (Несжатый PCM)",
+                "sublabel": "Студийный 16-bit 44.1 kHz PCM",
+                "badge": "PCM",
+                "codec": "wav",
+                "quality": "0",
+                "ext": "wav",
+                "lossless": True,
+                "bitrate": 1411
+            },
+            "mp3_320": {
+                "label": "MP3 320 kbps",
+                "sublabel": "Максимальный битрейт MP3",
+                "badge": "320 kbps",
+                "codec": "mp3",
+                "quality": "320",
+                "ext": "mp3",
+                "lossless": False,
+                "bitrate": 320
+            },
+            "mp3_128": {
+                "label": "MP3 128 kbps",
+                "sublabel": "Компактный размер",
+                "badge": "Экономия",
+                "codec": "mp3",
+                "quality": "128",
+                "ext": "mp3",
+                "lossless": False,
+                "bitrate": 128
+            }
+        }
+
+    # 2. AAC / HQ stream (typically 160 kbps on SoundCloud)
+    if "AAC" in codec or bitrate >= 160:
+        return {
+            "direct_stream": {
+                "label": "Оригинальный поток (Direct Stream)",
+                "sublabel": f"Исходный AAC {bitrate} kbps (1:1 без пережатия)",
+                "badge": "Рекомендуется (1:1)",
+                "codec": "copy",
+                "quality": "0",
+                "ext": "m4a",
+                "lossless": False,
+                "bitrate": bitrate
+            },
+            "mp3_source": {
+                "label": f"MP3 (~{bitrate} kbps)",
+                "sublabel": "Универсальный MP3 для автомагнитол и плееров",
+                "badge": "Популярный MP3",
+                "codec": "mp3",
+                "quality": str(bitrate) if bitrate in (128, 160, 192, 256, 320) else "160",
+                "ext": "mp3",
+                "lossless": False,
+                "bitrate": bitrate
+            },
+            "mp3_128": {
+                "label": "MP3 128 kbps (Компактный)",
+                "sublabel": "Меньший размер файла",
+                "badge": "Экономия",
+                "codec": "mp3",
+                "quality": "128",
+                "ext": "mp3",
+                "lossless": False,
+                "bitrate": 128
+            }
+        }
+
+    # 3. Standard MP3 stream (128 kbps or lower)
+    return {
+        "direct_stream": {
+            "label": "Оригинальный поток (Direct Stream)",
+            "sublabel": f"Прямой поток 1:1 с SoundCloud ({bitrate} kbps)",
+            "badge": "Рекомендуется (1:1)",
+            "codec": "copy",
+            "quality": "0",
+            "ext": "mp3" if "MP3" in codec else "m4a",
+            "lossless": False,
+            "bitrate": bitrate
+        },
+        "mp3_128": {
+            "label": "MP3 128 kbps",
+            "sublabel": "Стандартный MP3 для любых устройств",
+            "badge": "Стандарт",
+            "codec": "mp3",
+            "quality": "128",
+            "ext": "mp3",
+            "lossless": False,
+            "bitrate": 128
+        }
+    }
 
 SUPPORTED_THUMBNAIL_EXTS = {"mp3", "m4a", "flac", "ogg", "opus"}
 
@@ -456,7 +621,7 @@ def fetch_soundcloud_hydration(url: str) -> Optional[Dict[str, Any]]:
                     "total_duration_formatted": format_duration(total_duration),
                     "tracks": track_list,
                     "url": url,
-                    "qualities": QUALITY_CONFIGS,
+                    "qualities": build_available_qualities(source_info),
                     "source_info": source_info,
                     "_partial": len(track_list) < expected_count
                 }
@@ -487,7 +652,7 @@ def fetch_soundcloud_hydration(url: str) -> Optional[Dict[str, Any]]:
                     "genre": data.get("genre"),
                     "description": (data.get("description") or "")[:300],
                     "url": data.get("permalink_url") or url,
-                    "qualities": QUALITY_CONFIGS,
+                    "qualities": build_available_qualities(source_info),
                     "source_info": source_info
                 }
     except Exception:
@@ -584,7 +749,7 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             "total_duration_formatted": format_duration(total_duration),
             "tracks": track_list,
             "url": url,
-            "qualities": QUALITY_CONFIGS,
+            "qualities": build_available_qualities(source_info),
             "source_info": source_info
         }
     else:
@@ -609,31 +774,100 @@ def extract_media_info(url: str) -> Dict[str, Any]:
             "genre": genre,
             "description": description[:300] if description else None,
             "url": url,
-            "qualities": QUALITY_CONFIGS,
+            "qualities": build_available_qualities(source_info),
             "source_info": source_info
         }
 
-def trigger_macos_notification(title: str, subtitle: str, message: str):
-    """Fire a native macOS notification via osascript."""
+_stream_info_cache: Dict[str, Dict[str, Any]] = {}
+
+def get_stream_info(url: str) -> Optional[Dict[str, Any]]:
+    """Fast extraction of direct audio stream URL for in-app preview with memory caching."""
+    if url in _stream_info_cache:
+        return _stream_info_cache[url]
+
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+    }
+    if FFMPEG_PATH:
+        ydl_opts["ffmpeg_location"] = FFMPEG_PATH
+
     try:
-        clean_title = title.replace('"', '\\"')
-        clean_sub = subtitle.replace('"', '\\"')
-        clean_msg = message.replace('"', '\\"')
-        script = f'display notification "{clean_msg}" with title "{clean_title}" subtitle "{clean_sub}" sound name "Glass"'
-        subprocess.run(["osascript", "-e", script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if not info:
+                return None
+
+            stream_url = None
+            formats = info.get("formats", [])
+            # Prefer progressive http mp3 for maximum browser compatibility
+            for f in formats:
+                f_url = f.get("url")
+                proto = str(f.get("protocol", "")).lower()
+                ext = str(f.get("ext", "")).lower()
+                acodec = str(f.get("acodec", "")).lower()
+                fid = str(f.get("format_id", "")).lower()
+                if f_url and ("http" in proto or "http" in fid) and (ext == "mp3" or "mp3" in acodec or "mp3" in fid):
+                    stream_url = f_url
+                    break
+
+            if not stream_url:
+                stream_url = info.get("url")
+
+            dur = info.get("duration") or 0.0
+            artwork = get_best_artwork(info) or info.get("thumbnail") or ""
+
+            res = {
+                "stream_url": stream_url,
+                "title": info.get("title") or "SoundCloud Track",
+                "uploader": info.get("uploader") or "SoundCloud Artist",
+                "duration": dur,
+                "duration_formatted": format_duration(dur),
+                "artwork": artwork
+            }
+            if stream_url:
+                _stream_info_cache[url] = res
+            return res
+    except Exception as e:
+        print(f"Warning: Failed to extract stream for {url}: {e}")
+        return None
+
+def trigger_macos_notification(title: str, subtitle: str, message: str):
+    """Fire a native OS notification (macOS or Windows)."""
+    try:
+        if sys.platform == "darwin":
+            clean_title = title.replace('"', '\\"')
+            clean_sub = subtitle.replace('"', '\\"')
+            clean_msg = message.replace('"', '\\"')
+            script = f'display notification "{clean_msg}" with title "{clean_title}" subtitle "{clean_sub}" sound name "Glass"'
+            subprocess.run(["osascript", "-e", script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif sys.platform == "win32":
+            # Native Windows Toast Notification via PowerShell
+            ps_script = (
+                "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; "
+                "$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); "
+                "$textNodes = $template.GetElementsByTagName('text'); "
+                f"$textNodes.Item(0).AppendChild($template.CreateTextNode('{title}')) > $null; "
+                f"$textNodes.Item(1).AppendChild($template.CreateTextNode('{message}')) > $null; "
+                "$toast = [Windows.UI.Notifications.ToastNotification]::new($template); "
+                "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('SoundCloud Downloader').Show($toast);"
+            )
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
 
 class DownloadTask:
     """Manages an active background download with progress monitoring."""
-    def __init__(self, task_id: str, url: str, quality: str = "mp3_320",
+    def __init__(self, task_id: str, url: str, quality: str = "direct_stream",
                  as_zip: bool = True, output_dir: Optional[str] = None,
                  selected_tracks: Optional[List[int]] = None,
                  embed_artwork: bool = True, embed_metadata: bool = True,
                  normalize_quiet: bool = True):
         self.task_id = task_id
         self.url = url
-        self.quality = quality if quality in QUALITY_CONFIGS else "mp3_320"
+        self.quality = quality if quality in QUALITY_CONFIGS else "direct_stream"
         self.as_zip = as_zip
         self.output_dir = os.path.expanduser(output_dir or "~/Downloads")
         self.selected_tracks = selected_tracks  # 1-based indices
@@ -742,8 +976,8 @@ class DownloadTask:
         self.current_track_title = info.get("title", "Трек")
         self.message = f"Подготовка к загрузке: {self.current_track_title}"
 
-        cfg = QUALITY_CONFIGS[self.quality]
-        ext = cfg["ext"]
+        cfg = QUALITY_CONFIGS.get(self.quality) or QUALITY_CONFIGS.get("direct_stream")
+        ext = cfg.get("ext", "mp3")
 
         artist = sanitize_filename(info.get("uploader", "SoundCloud"))
         title = sanitize_filename(info.get("title", "Track"))
@@ -849,8 +1083,8 @@ class DownloadTask:
         staging_dir = os.path.join(self.output_dir, f".sc_dl_temp_{self.task_id}")
         os.makedirs(staging_dir, exist_ok=True)
 
-        cfg = QUALITY_CONFIGS[self.quality]
-        ext = cfg["ext"]
+        cfg = QUALITY_CONFIGS.get(self.quality) or QUALITY_CONFIGS.get("direct_stream")
+        ext = cfg.get("ext", "mp3")
 
         downloaded_files = []
 

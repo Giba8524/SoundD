@@ -10,9 +10,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenu()
+        setupAppIcon()
         startServerIfNeeded()
         createWindow()
         loadApp()
+    }
+
+    func setupAppIcon() {
+        if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let image = NSImage(contentsOf: iconURL) {
+            NSApplication.shared.applicationIconImage = image
+        }
     }
 
     func setupMenu() {
@@ -76,19 +84,51 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return alive
     }
 
-    func startServerIfNeeded() {
-        if isServerAlive() {
-            print("Backend server already running on port \(port)")
-            return
-        }
+    func findPythonExecutable() -> URL {
+        // 1. Try finding python3 in user environment via /usr/bin/which
+        let whichProcess = Process()
+        whichProcess.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+        whichProcess.arguments = ["python3"]
+        let pipe = Pipe()
+        whichProcess.standardOutput = pipe
+        do {
+            try whichProcess.run()
+            whichProcess.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !output.isEmpty, FileManager.default.isExecutableFile(atPath: output) {
+                return URL(fileURLWithPath: output)
+            }
+        } catch {}
 
-        // Locate server.py
+        // 2. Check standard Homebrew & system locations
+        let candidates = [
+            "/opt/homebrew/bin/python3",
+            "/usr/local/bin/python3",
+            "/usr/bin/python3"
+        ]
+        for path in candidates {
+            if FileManager.default.isExecutableFile(atPath: path) {
+                return URL(fileURLWithPath: path)
+            }
+        }
+        return URL(fileURLWithPath: "/usr/bin/python3")
+    }
+
+    func startServerIfNeeded() {
+        // Terminate any stale orphaned server process on this port to ensure current bundle version runs
+        let killProcess = Process()
+        killProcess.executableURL = URL(fileURLWithPath: "/bin/sh")
+        killProcess.arguments = ["-c", "lsof -ti :\(port) | xargs kill -9 2>/dev/null || true"]
+        try? killProcess.run()
+        killProcess.waitUntilExit()
+
+        // Locate server.py (prefer bundled version in Resources)
         let appBundlePath = Bundle.main.bundlePath
         let possibleScriptPaths = [
-            (appBundlePath as NSString).deletingLastPathComponent + "/server.py",
             Bundle.main.resourcePath.map { $0 + "/server.py" } ?? "",
-            FileManager.default.currentDirectoryPath + "/server.py",
-            "/Users/mihail/Вайбкодинг/саунд клауд/server.py"
+            (appBundlePath as NSString).deletingLastPathComponent + "/server.py",
+            FileManager.default.currentDirectoryPath + "/server.py"
         ]
 
         var scriptPath: String?
@@ -105,7 +145,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        let pyURL = findPythonExecutable()
+        process.executableURL = pyURL
         process.arguments = [validScript, "\(port)"]
         process.currentDirectoryURL = URL(fileURLWithPath: (validScript as NSString).deletingLastPathComponent)
 
@@ -168,7 +209,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func loadApp() {
         if let url = URL(string: serverURLString) {
-            let request = URLRequest(url: url)
+            let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10.0)
             webView.load(request)
         }
     }
