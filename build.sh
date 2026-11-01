@@ -16,7 +16,7 @@ echo "🚀 Building ${APP_NAME}..."
 
 # 1. Install / update dependencies
 echo "📦 Checking Python dependencies..."
-python3 -m pip install --user -q -r "${PROJECT_DIR}/requirements.txt" || true
+python3 -m pip install --user -q yt-dlp static-ffmpeg mutagen || true
 
 # 2. Prepare bundle directories
 mkdir -p "${MACOS_DIR}"

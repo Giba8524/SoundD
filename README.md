@@ -28,8 +28,9 @@
 
 | Платформа | Файл для загрузки | Описание |
 | :--- | :--- | :--- |
+| 🪟 **Windows (Установщик)** | [**`SoundCloud-Downloader-Setup.exe`**](https://github.com/Giba8524/SoundD/releases/latest) | **Рекомендуется:** полноценный мастер установки Windows, создание ярлыка и автодеинсталлятор |
+| 🪟 **Windows (Портативная)** | [**`SoundCloud-Downloader-Windows-Portable.zip`**](https://github.com/Giba8524/SoundD/releases/latest) | Автономная портативная версия (не требует установки, распакуй и запусти `.exe`) |
 | 🍏 **macOS** | [**`SoundCloud-Downloader-macOS.zip`**](https://github.com/Giba8524/SoundD/releases/latest) | Нативный `.app` бандл для Apple Silicon (M1/M2/M3/M4) и Intel |
-| 🪟 **Windows** | [**`SoundCloud-Downloader-Windows.zip`**](https://github.com/Giba8524/SoundD/releases/latest) | Автономное приложение `.exe` для Windows 10 и Windows 11 (x64) |
 
 ---
 
@@ -92,9 +93,13 @@
 3. Запустите приложение через Launchpad или Spotlight!
 
 ### 🪟 Инструкция для Windows:
-1. Скачайте архив **`SoundCloud-Downloader-Windows.zip`** из [Releases](https://github.com/Giba8524/SoundD/releases).
-2. Распакуйте архив в любое удобное место (например, на рабочий стол или в `C:\Program Files`).
-3. Запустите **`SoundCloud Downloader.exe`**. Всё работает сразу из коробки без консолей и без установки дополнительных программ!
+* **Вариант 1 (Установщик, рекомендуется):**
+  1. Скачайте инсталлятор **`SoundCloud-Downloader-Setup.exe`** из [Releases](https://github.com/Giba8524/SoundD/releases).
+  2. Запустите его, выберите язык (русский/английский) и нажмите «Далее». Мастер автоматически установит приложение и создаст ярлык на рабочем столе и в меню «Пуск».
+  3. Запустите приложение из ярлыка!
+* **Вариант 2 (Портативная версия):**
+  1. Скачайте архив **`SoundCloud-Downloader-Windows-Portable.zip`**.
+  2. Распакуйте папку и запустите **`SoundCloud Downloader.exe`**. Никаких терминалов, Python или сторонних утилит не требуется.
 
 ---
 

@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-windows:
-    name: Build Windows .exe (Edge WebView2)
+    name: Build Windows Installer & Executable
     runs-on: windows-latest
     steps:
       - name: Checkout Code
@@ -37,6 +37,7 @@ jobs:
           pyinstaller --noconfirm --windowed `
             --name "SoundCloud Downloader" `
             --add-data "static;static" `
+            --add-data "icon.ico;." `
             --icon "icon.ico" `
             app_windows.py
 
@@ -45,20 +46,52 @@ jobs:
         run: |
           python -c "import static_ffmpeg, shutil, os; f, p = static_ffmpeg.run.get_or_fetch_platform_executables_else_raise(); dest = os.path.join('dist', 'SoundCloud Downloader'); shutil.copy(f, os.path.join(dest, 'ffmpeg.exe')); shutil.copy(p, os.path.join(dest, 'ffprobe.exe')); print('FFmpeg bundled successfully')"
 
-      - name: Package Windows Release ZIP
+      - name: Install Inno Setup
         shell: pwsh
         run: |
-          Compress-Archive -Path "dist/SoundCloud Downloader" -DestinationPath "SoundCloud-Downloader-Windows.zip" -Force
+          choco install innosetup -y
 
-      - name: Upload Windows Artifact
-        uses: actions/upload-artifact@v4
+      - name: Compile Inno Setup Windows Installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+          Copy-Item "dist_installer\SoundCloud-Downloader-Setup.exe" -Destination "SoundCloud-Downloader-Setup.exe"
+
+      - name: Package Windows Portable Release ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist/SoundCloud Downloader" -DestinationPath "SoundCloud-Downloader-Windows-Portable.zip" -Force
+          Copy-Item "SoundCloud-Downloader-Windows-Portable.zip" -Destination "SoundCloud-Downloader-Windows.zip"
+
+      - name: Determine Tag
+        id: release_tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like "refs/tags/*") {
+            $tag = $env:GITHUB_REF.Replace("refs/tags/", "")
+          } else {
+            $tag = "v1.1.0"
+          }
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Publish Windows Release Assets
+        uses: softprops/action-gh-release@v2
         with:
-          name: windows-build
-          path: SoundCloud-Downloader-Windows.zip
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: SoundCloud Downloader ${{ steps.release_tag.outputs.tag }}
+          files: |
+            SoundCloud-Downloader-Setup.exe
+            SoundCloud-Downloader-Windows-Portable.zip
+            SoundCloud-Downloader-Windows.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-macos:
     name: Build macOS .app Bundle
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -73,30 +106,6 @@ jobs:
           chmod +x build.sh
           ./build.sh --dist
 
-      - name: Upload macOS Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build
-          path: SoundCloud-Downloader-macOS.zip
-
-  publish-release:
-    name: Publish GitHub Release
-    needs: [build-windows, build-macos]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Download Windows Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-build
-
-      - name: Download macOS Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-build
-
       - name: Determine Tag
         id: release_tag
         run: |
@@ -106,13 +115,12 @@ jobs:
             echo "tag=v1.1.0" >> $GITHUB_OUTPUT
           fi
 
-      - name: Publish Release Assets
+      - name: Publish macOS Release Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_tag.outputs.tag }}
           name: SoundCloud Downloader ${{ steps.release_tag.outputs.tag }}
           files: |
-            SoundCloud-Downloader-Windows.zip
             SoundCloud-Downloader-macOS.zip
           draft: false
           prerelease: false
