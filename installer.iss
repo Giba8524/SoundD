@@ -1,6 +1,6 @@
 ; Inno Setup 6 Script for SoundCloud Downloader
 #define MyAppName "SoundCloud Downloader"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "Mihail"
 #define MyAppURL "https://github.com/Giba8524/SoundD"
 #define MyAppExeName "SoundCloud Downloader.exe"

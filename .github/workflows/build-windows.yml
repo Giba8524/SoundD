@@ -70,7 +70,7 @@ jobs:
           if ($env:GITHUB_REF -like "refs/tags/*") {
             $tag = $env:GITHUB_REF.Replace("refs/tags/", "")
           } else {
-            $tag = "v1.1.0"
+            $tag = "v1.2.0"
           }
           echo "tag=$tag" >> $env:GITHUB_OUTPUT
 
@@ -112,7 +112,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           else
-            echo "tag=v1.1.0" >> $GITHUB_OUTPUT
+            echo "tag=v1.2.0" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish macOS Release Assets
