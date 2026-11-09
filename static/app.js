@@ -681,15 +681,6 @@ function attachRowEvents(row, t, artwork) {
   }
 }
 
-  // Render Quality Grid with estimated sizes calculated for all selected tracks
-  renderQualityGrid(playlistQualityGrid, info.qualities || availableQualities, (q) => {
-    selectedQuality = q;
-    updatePlaylistButtonText();
-  }, true);
-
-  updatePlaylistButtonText();
-}
-
 function renderQualityGrid(container, qualities, onSelect, isPlaylist = false) {
   container.innerHTML = "";
 
