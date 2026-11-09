@@ -100,6 +100,8 @@ const playlistSourceValue = document.getElementById("playlistSourceValue");
 const playlistQualityNotice = document.getElementById("playlistQualityNotice");
 const playlistQualityNoticeText = document.getElementById("playlistQualityNoticeText");
 const playlistQualityGrid = document.getElementById("playlistQualityGrid");
+const playlistEmbedArtwork = document.getElementById("playlistEmbedArtwork");
+const playlistEmbedMetadata = document.getElementById("playlistEmbedMetadata");
 const playlistNormalizeQuiet = document.getElementById("playlistNormalizeQuiet");
 const choiceZip = document.getElementById("choiceZip");
 const choiceFolder = document.getElementById("choiceFolder");
@@ -537,6 +539,7 @@ function renderTrackRowContent(row, t, artwork) {
   const displayTitle = t.custom_title || t.title;
   const displayArtist = t.custom_artist || t.uploader;
   const isEdited = Boolean(t.custom_title || t.custom_artist);
+  const trackThumb = t.artwork || artwork || "https://a-v2.sndcdn.com/assets/images/default/avatar-f000000000.png";
 
   row.innerHTML = `
     <label class="custom-checkbox">
@@ -553,6 +556,7 @@ function renderTrackRowContent(row, t, artwork) {
       </svg>
     </button>
     <span class="track-num">${t.index}</span>
+    <img class="track-row-artwork" src="${escapeHtml(trackThumb)}" alt="Cover" loading="lazy" onerror="this.onerror=null;this.src='${escapeHtml(artwork || '')}';">
     <div class="track-row-info">
       <span class="track-row-title" title="${escapeHtml(displayTitle)}">
         ${escapeHtml(displayTitle)}
@@ -576,9 +580,11 @@ function startTrackRowInlineEdit(row, t, artwork) {
   row.classList.add("is-editing");
   const currentTitle = t.custom_title || t.title;
   const currentArtist = t.custom_artist || t.uploader;
+  const trackThumb = t.artwork || artwork || "https://a-v2.sndcdn.com/assets/images/default/avatar-f000000000.png";
 
   row.innerHTML = `
     <span class="track-num" style="margin-left: 8px;">${t.index}</span>
+    <img class="track-row-artwork" src="${escapeHtml(trackThumb)}" alt="Cover" loading="lazy" onerror="this.onerror=null;this.src='${escapeHtml(artwork || '')}';">
     <div class="track-row-edit-mode">
       <input type="text" class="inline-edit-input track-title-input" value="${escapeHtml(currentTitle)}" placeholder="Название трека" style="flex: 1.8;">
       <input type="text" class="inline-edit-input track-artist-input" value="${escapeHtml(currentArtist)}" placeholder="Исполнитель" style="flex: 1.2;">
@@ -945,8 +951,8 @@ downloadPlaylistBtn.addEventListener("click", () => {
     as_zip: playlistFormat === "zip",
     output_dir: customOutputDir,
     selected_tracks: selectedTracks,
-    embed_artwork: true,
-    embed_metadata: true,
+    embed_artwork: playlistEmbedArtwork ? playlistEmbedArtwork.checked : true,
+    embed_metadata: playlistEmbedMetadata ? playlistEmbedMetadata.checked : true,
     normalize_quiet: playlistNormalizeQuiet ? playlistNormalizeQuiet.checked : true,
     custom_title: currentMediaInfo.custom_title || currentMediaInfo.title,
     custom_artist: currentMediaInfo.custom_artist || currentMediaInfo.uploader,

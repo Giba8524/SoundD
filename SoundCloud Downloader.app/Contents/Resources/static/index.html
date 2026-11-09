@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SoundCloud Downloader для Mac</title>
-  <link rel="stylesheet" href="style.css?v=6">
-  <link rel="icon" type="image/png" href="icon.png?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="icon" type="image/png" href="icon.png?v=7">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -307,7 +307,7 @@
                 </div>
                 <div class="choice-content">
                   <div class="choice-title">Архив .ZIP</div>
-                  <div class="choice-desc">Все треки упакованы в один ZIP-файл с номерами и обложками</div>
+                  <div class="choice-desc">Все треки в ZIP-архиве с номерами, вшитыми обложками и cover.jpg</div>
                 </div>
                 <div class="choice-badge">Рекомендуется</div>
               </div>
@@ -320,7 +320,7 @@
                 </div>
                 <div class="choice-content">
                   <div class="choice-title">Папка с треками</div>
-                  <div class="choice-desc">Каждый трек скачивается отдельным файлом в папку альбома</div>
+                  <div class="choice-desc">Каждый трек с вшитой обложкой в отдельную папку + файл cover.jpg</div>
                 </div>
               </div>
             </div>
@@ -339,6 +339,25 @@
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
               </svg>
               <span id="playlistQualityNoticeText"></span>
+            </div>
+
+            <!-- Options for Playlist -->
+            <div class="options-row" style="margin-top: 14px; margin-bottom: 4px;">
+              <label class="toggle-control">
+                <input type="checkbox" id="playlistEmbedArtwork" checked>
+                <span class="toggle-slider"></span>
+                <span class="toggle-text">Вшить обложки + сохранить cover.jpg</span>
+              </label>
+              <label class="toggle-control">
+                <input type="checkbox" id="playlistEmbedMetadata" checked>
+                <span class="toggle-slider"></span>
+                <span class="toggle-text">Записать ID3 теги (Артист, Альбом, №)</span>
+              </label>
+              <label class="toggle-control" title="Увеличивает громкость только тех треков, которые записаны слишком тихо.">
+                <input type="checkbox" id="playlistNormalizeQuiet" checked>
+                <span class="toggle-slider"></span>
+                <span class="toggle-text">Выровнять тихие треки</span>
+              </label>
             </div>
           </div>
 
@@ -534,6 +553,6 @@
 
   </div>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

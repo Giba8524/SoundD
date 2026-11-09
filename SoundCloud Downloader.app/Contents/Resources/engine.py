@@ -12,7 +12,8 @@ import shutil
 import zipfile
 import threading
 import subprocess
-from typing import Optional, Dict, Any, List, Callable
+import urllib.request
+from typing import Optional, Dict, Any, List, Callable, Tuple
 
 # Auto-detect or import static_ffmpeg if available
 FFMPEG_PATH = None
@@ -489,21 +490,77 @@ def sanitize_filename(name: str) -> str:
     clean = re.sub(r'\s+', ' ', clean).strip()
     return clean[:200]
 
+_artwork_cache: Dict[str, Tuple[bytes, str]] = {}
+
+def fetch_artwork_bytes(artwork_url: Optional[str]) -> Optional[Tuple[bytes, str]]:
+    """
+    Downloads artwork image and ensures standard JPEG/PNG format.
+    Converts WebP or other formats to JPEG via FFmpeg for universal player compatibility.
+    """
+    if not artwork_url or not isinstance(artwork_url, str) or not artwork_url.startswith("http"):
+        return None
+    if artwork_url in _artwork_cache:
+        return _artwork_cache[artwork_url]
+
+    try:
+        req = urllib.request.Request(
+            artwork_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = resp.read()
+            if not data or len(data) < 100:
+                return None
+
+            mime = "image/jpeg"
+            if data.startswith(b"\x89PNG"):
+                mime = "image/png"
+            elif (data.startswith(b"RIFF") and b"WEBP" in data[:16]) or not (data.startswith(b"\xff\xd8") or data.startswith(b"\x89PNG")):
+                # Convert WebP or unusual format to standard JPEG via FFmpeg
+                if FFMPEG_PATH:
+                    try:
+                        cmd = [
+                            FFMPEG_PATH, "-y", "-v", "error",
+                            "-i", "pipe:0",
+                            "-q:v", "2",
+                            "-f", "image2",
+                            "pipe:1"
+                        ]
+                        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        out, _ = proc.communicate(input=data, timeout=5)
+                        if proc.returncode == 0 and out and len(out) > 100:
+                            data = out
+                            mime = "image/jpeg"
+                    except Exception as conv_err:
+                        print(f"Warning: FFmpeg cover conversion failed: {conv_err}")
+
+            result = (data, mime)
+            if len(_artwork_cache) > 200:
+                _artwork_cache.clear()
+            _artwork_cache[artwork_url] = result
+            return result
+    except Exception as e:
+        print(f"Warning: Failed to download artwork from {artwork_url}: {e}")
+        return None
+
 def apply_audio_tags(file_path: str, title: Optional[str] = None, artist: Optional[str] = None,
                      album: Optional[str] = None, album_artist: Optional[str] = None,
-                     track_num: Optional[int] = None, total_tracks: Optional[int] = None):
+                     track_num: Optional[int] = None, total_tracks: Optional[int] = None,
+                     artwork_data: Optional[bytes] = None, artwork_mime: str = "image/jpeg"):
     """
     Embed custom metadata (Title, Artist, Album, Album Artist, Track Number)
-    into an audio file using mutagen.
+    and album artwork cover into an audio file using mutagen.
     """
     if not file_path or not os.path.exists(file_path):
         return
     ext = os.path.splitext(file_path)[1].lower()
     try:
         import mutagen
-        from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, TRCK, ID3NoHeaderError
-        from mutagen.mp4 import MP4
-        from mutagen.flac import FLAC
+        from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, TRCK, APIC, ID3NoHeaderError
+        from mutagen.mp4 import MP4, MP4Cover
+        from mutagen.flac import FLAC, Picture
         from mutagen.wave import WAVE
 
         if ext == ".mp3":
@@ -522,6 +579,18 @@ def apply_audio_tags(file_path: str, title: Optional[str] = None, artist: Option
             if track_num is not None:
                 trck_str = f"{track_num}/{total_tracks}" if total_tracks else str(track_num)
                 audio["TRCK"] = TRCK(encoding=3, text=trck_str)
+            if artwork_data:
+                try:
+                    audio.delall("APIC")
+                    audio.add(APIC(
+                        encoding=3,
+                        mime=artwork_mime or "image/jpeg",
+                        type=3,
+                        desc="Cover",
+                        data=artwork_data
+                    ))
+                except Exception as apic_err:
+                    print(f"Warning: Failed to embed APIC: {apic_err}")
             audio.save(file_path, v2_version=3)
 
         elif ext in (".m4a", ".mp4", ".aac"):
@@ -537,6 +606,12 @@ def apply_audio_tags(file_path: str, title: Optional[str] = None, artist: Option
                     audio["aART"] = [album_artist]
                 if track_num is not None:
                     audio["trkn"] = [(int(track_num), int(total_tracks or 0))]
+                if artwork_data:
+                    try:
+                        covr_fmt = MP4Cover.FORMAT_PNG if artwork_mime == "image/png" else MP4Cover.FORMAT_JPEG
+                        audio["covr"] = [MP4Cover(artwork_data, imageformat=covr_fmt)]
+                    except Exception as covr_err:
+                        print(f"Warning: Failed to embed MP4 covr: {covr_err}")
                 audio.save()
             except Exception:
                 pass
@@ -556,6 +631,17 @@ def apply_audio_tags(file_path: str, title: Optional[str] = None, artist: Option
                     audio["tracknumber"] = str(track_num)
                     if total_tracks:
                         audio["totaltracks"] = str(total_tracks)
+                if artwork_data:
+                    try:
+                        audio.clear_pictures()
+                        pic = Picture()
+                        pic.type = 3
+                        pic.mime = artwork_mime or "image/jpeg"
+                        pic.desc = "Cover"
+                        pic.data = artwork_data
+                        audio.add_picture(pic)
+                    except Exception as flac_pic_err:
+                        print(f"Warning: Failed to embed FLAC picture: {flac_pic_err}")
                 audio.save()
             except Exception:
                 pass
@@ -574,6 +660,18 @@ def apply_audio_tags(file_path: str, title: Optional[str] = None, artist: Option
                         audio["albumartist"] = [album_artist]
                     if track_num is not None:
                         audio["tracknumber"] = [str(track_num)]
+                    if artwork_data:
+                        try:
+                            import base64
+                            pic = Picture()
+                            pic.type = 3
+                            pic.mime = artwork_mime or "image/jpeg"
+                            pic.desc = "Cover"
+                            pic.data = artwork_data
+                            pic_b64 = base64.b64encode(pic.write()).decode("ascii")
+                            audio["metadata_block_picture"] = [pic_b64]
+                        except Exception as ogg_pic_err:
+                            print(f"Warning: Failed to embed OGG picture: {ogg_pic_err}")
                     audio.save()
             except Exception:
                 pass
@@ -595,6 +693,18 @@ def apply_audio_tags(file_path: str, title: Optional[str] = None, artist: Option
                 if track_num is not None:
                     trck_str = f"{track_num}/{total_tracks}" if total_tracks else str(track_num)
                     tags["TRCK"] = TRCK(encoding=3, text=trck_str)
+                if artwork_data:
+                    try:
+                        tags.delall("APIC")
+                        tags.add(APIC(
+                            encoding=3,
+                            mime=artwork_mime or "image/jpeg",
+                            type=3,
+                            desc="Cover",
+                            data=artwork_data
+                        ))
+                    except Exception:
+                        pass
                 tags.save(file_path, v2_version=3)
             except Exception:
                 pass
@@ -791,6 +901,8 @@ def extract_media_info(url: str) -> Dict[str, Any]:
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
+        "extract_flat": "in_playlist",
+        "ignoreerrors": True,
     }
     if FFMPEG_PATH:
         ydl_opts["ffmpeg_location"] = FFMPEG_PATH
@@ -1168,9 +1280,18 @@ class DownloadTask:
             if boost > 0:
                 print(f"Applied +{boost:.1f} dB boost to quiet track {target_file}")
 
-        # Apply custom metadata tags if enabled
-        if self.embed_metadata and os.path.exists(target_file):
-            apply_audio_tags(target_file, title=raw_title, artist=raw_artist)
+        # Apply custom metadata tags and artwork cover if enabled
+        if os.path.exists(target_file):
+            art_res = fetch_artwork_bytes(info.get("artwork")) if self.embed_artwork else None
+            art_data = art_res[0] if art_res else None
+            art_mime = art_res[1] if art_res else "image/jpeg"
+            apply_audio_tags(
+                target_file,
+                title=raw_title if self.embed_metadata else None,
+                artist=raw_artist if self.embed_metadata else None,
+                artwork_data=art_data,
+                artwork_mime=art_mime
+            )
 
         file_size = os.path.getsize(target_file) if os.path.exists(target_file) else 0
 
@@ -1207,9 +1328,25 @@ class DownloadTask:
         playlist_title = sanitize_filename(raw_album)
         artist = sanitize_filename(raw_album_artist)
 
+        # Download album artwork for folder and track embedding
+        album_art_url = info.get("artwork")
+        if not album_art_url and tracks_to_download:
+            album_art_url = tracks_to_download[0].get("artwork")
+
+        album_art_res = fetch_artwork_bytes(album_art_url) if self.embed_artwork else None
+
         # Temporary staging folder for the tracks
         staging_dir = os.path.join(self.output_dir, f".sc_dl_temp_{self.task_id}")
         os.makedirs(staging_dir, exist_ok=True)
+
+        # Save cover.jpg into staging directory so the folder always contains the album artwork
+        cover_path = os.path.join(staging_dir, "cover.jpg")
+        if album_art_res:
+            try:
+                with open(cover_path, "wb") as cf:
+                    cf.write(album_art_res[0])
+            except Exception as e:
+                print(f"Warning: Failed to write cover.jpg: {e}")
 
         cfg = QUALITY_CONFIGS.get(self.quality) or QUALITY_CONFIGS.get("direct_stream")
         ext = cfg.get("ext", "mp3")
@@ -1281,15 +1418,31 @@ class DownloadTask:
                             break
 
                 if actual_track_file and os.path.exists(actual_track_file):
-                    if self.embed_metadata:
+                    # Smart volume boost for quiet tracks if enabled
+                    if self.normalize_quiet:
+                        smart_boost_quiet_audio(actual_track_file)
+
+                    # Determine artwork for this track (track-specific or album cover)
+                    track_art_url = track.get("artwork") or album_art_url
+                    if track_art_url and track_art_url != album_art_url:
+                        track_art_res = fetch_artwork_bytes(track_art_url) or album_art_res
+                    else:
+                        track_art_res = album_art_res
+
+                    track_art_data = track_art_res[0] if (self.embed_artwork and track_art_res) else None
+                    track_art_mime = track_art_res[1] if track_art_res else "image/jpeg"
+
+                    if self.embed_metadata or self.embed_artwork:
                         apply_audio_tags(
                             actual_track_file,
-                            title=raw_track_title,
-                            artist=raw_track_artist,
-                            album=raw_album,
-                            album_artist=raw_album_artist,
-                            track_num=idx,
-                            total_tracks=self.total_tracks
+                            title=raw_track_title if self.embed_metadata else None,
+                            artist=raw_track_artist if self.embed_metadata else None,
+                            album=raw_album if self.embed_metadata else None,
+                            album_artist=raw_album_artist if self.embed_metadata else None,
+                            track_num=idx if self.embed_metadata else None,
+                            total_tracks=self.total_tracks if self.embed_metadata else None,
+                            artwork_data=track_art_data,
+                            artwork_mime=track_art_mime
                         )
                     downloaded_files.append(actual_track_file)
 
@@ -1300,11 +1453,21 @@ class DownloadTask:
             if not downloaded_files:
                 raise ValueError("Не удалось скачать ни один трек из плейлиста")
 
-            # Smart volume boost for quiet tracks in playlist
-            if self.normalize_quiet:
-                self.message = "Проверка громкости и выравнивание треков..."
-                for fpath in downloaded_files:
-                    smart_boost_quiet_audio(fpath)
+            # Clean up any leftover temporary files or extra yt-dlp thumbnails, keeping cover.jpg
+            for f in os.listdir(staging_dir):
+                fp = os.path.join(staging_dir, f)
+                if f == "cover.jpg":
+                    continue
+                if f.endswith(('.part', '.temp', '.webp', '.ytdl')):
+                    try:
+                        os.remove(fp)
+                    except Exception:
+                        pass
+                elif f.endswith(('.jpg', '.png')) and fp not in downloaded_files:
+                    try:
+                        os.remove(fp)
+                    except Exception:
+                        pass
 
             if self.as_zip:
                 # Packaging all into .zip archive
@@ -1324,6 +1487,9 @@ class DownloadTask:
                     for fpath in downloaded_files:
                         arcname = os.path.basename(fpath)
                         zf.write(fpath, arcname=arcname)
+                    # Also include cover.jpg in the ZIP archive
+                    if os.path.exists(cover_path):
+                        zf.write(cover_path, arcname="cover.jpg")
 
                 shutil.rmtree(staging_dir, ignore_errors=True)
 
