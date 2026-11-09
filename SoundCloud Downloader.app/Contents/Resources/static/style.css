@@ -1703,3 +1703,259 @@ body {
   background: rgba(255, 255, 255, 0.18);
   color: #fff;
 }
+
+/* Metadata & Tag Editing Styles */
+.artist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.edit-badge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.edit-badge-btn:hover {
+  background: rgba(255, 85, 0, 0.15);
+  border-color: rgba(255, 85, 0, 0.4);
+  color: var(--sc-orange);
+}
+
+.edit-badge-btn.active {
+  background: var(--sc-orange);
+  color: #fff;
+  border-color: var(--sc-orange);
+}
+
+.quick-edit-panel {
+  background: rgba(18, 19, 24, 0.95);
+  border: 1px solid rgba(255, 85, 0, 0.35);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 10px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: editSlideDown 0.2s ease-out;
+}
+
+@keyframes editSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.edit-fields-row {
+  display: flex;
+  gap: 12px;
+}
+
+.edit-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.edit-field-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.edit-text-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-main);
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.edit-text-input:focus {
+  border-color: var(--sc-orange);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 2px rgba(255, 85, 0, 0.25);
+}
+
+.edit-extra-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.edit-extra-row .extra-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.edit-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.edit-action-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.edit-action-btn.primary {
+  background: var(--sc-orange);
+  color: #fff;
+}
+.edit-action-btn.primary:hover {
+  background: var(--sc-orange-hover);
+}
+
+.edit-action-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+.edit-action-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-main);
+}
+
+.edit-action-btn.cancel {
+  background: transparent;
+  color: var(--text-muted);
+}
+.edit-action-btn.cancel:hover {
+  color: var(--text-main);
+}
+
+/* Tracklist Inline Editing */
+.track-row-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+  opacity: 0.45;
+}
+
+.track-row:hover .track-row-edit-btn {
+  opacity: 1;
+}
+
+.track-row-edit-btn:hover {
+  background: rgba(255, 85, 0, 0.15);
+  border-color: rgba(255, 85, 0, 0.35);
+  color: var(--sc-orange);
+}
+
+.track-row.is-editing {
+  background: rgba(255, 85, 0, 0.09) !important;
+  border-left: 3px solid var(--sc-orange);
+}
+
+.track-row-edit-mode {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-edit-input {
+  background: rgba(12, 13, 16, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--text-main);
+  outline: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.inline-edit-input:focus {
+  border-color: var(--sc-orange);
+  box-shadow: 0 0 0 2px rgba(255, 85, 0, 0.25);
+}
+
+.inline-edit-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  font-size: 13px;
+  font-weight: bold;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.inline-edit-confirm-btn {
+  background: var(--sc-orange);
+  color: #fff;
+}
+.inline-edit-confirm-btn:hover {
+  background: var(--sc-orange-hover);
+}
+
+.inline-edit-cancel-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+.inline-edit-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-main);
+}
+
+.track-edited-tag {
+  font-size: 10px;
+  color: var(--sc-orange);
+  background: rgba(255, 85, 0, 0.14);
+  border: 1px solid rgba(255, 85, 0, 0.3);
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 6px;
+  font-weight: 500;
+  vertical-align: middle;
+  text-transform: lowercase;
+}

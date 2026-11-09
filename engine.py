@@ -489,6 +489,119 @@ def sanitize_filename(name: str) -> str:
     clean = re.sub(r'\s+', ' ', clean).strip()
     return clean[:200]
 
+def apply_audio_tags(file_path: str, title: Optional[str] = None, artist: Optional[str] = None,
+                     album: Optional[str] = None, album_artist: Optional[str] = None,
+                     track_num: Optional[int] = None, total_tracks: Optional[int] = None):
+    """
+    Embed custom metadata (Title, Artist, Album, Album Artist, Track Number)
+    into an audio file using mutagen.
+    """
+    if not file_path or not os.path.exists(file_path):
+        return
+    ext = os.path.splitext(file_path)[1].lower()
+    try:
+        import mutagen
+        from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, TRCK, ID3NoHeaderError
+        from mutagen.mp4 import MP4
+        from mutagen.flac import FLAC
+        from mutagen.wave import WAVE
+
+        if ext == ".mp3":
+            try:
+                audio = ID3(file_path)
+            except ID3NoHeaderError:
+                audio = ID3()
+            if title:
+                audio["TIT2"] = TIT2(encoding=3, text=title)
+            if artist:
+                audio["TPE1"] = TPE1(encoding=3, text=artist)
+            if album:
+                audio["TALB"] = TALB(encoding=3, text=album)
+            if album_artist:
+                audio["TPE2"] = TPE2(encoding=3, text=album_artist)
+            if track_num is not None:
+                trck_str = f"{track_num}/{total_tracks}" if total_tracks else str(track_num)
+                audio["TRCK"] = TRCK(encoding=3, text=trck_str)
+            audio.save(file_path, v2_version=3)
+
+        elif ext in (".m4a", ".mp4", ".aac"):
+            try:
+                audio = MP4(file_path)
+                if title:
+                    audio["\xa9nam"] = [title]
+                if artist:
+                    audio["\xa9ART"] = [artist]
+                if album:
+                    audio["\xa9alb"] = [album]
+                if album_artist:
+                    audio["aART"] = [album_artist]
+                if track_num is not None:
+                    audio["trkn"] = [(int(track_num), int(total_tracks or 0))]
+                audio.save()
+            except Exception:
+                pass
+
+        elif ext == ".flac":
+            try:
+                audio = FLAC(file_path)
+                if title:
+                    audio["title"] = title
+                if artist:
+                    audio["artist"] = artist
+                if album:
+                    audio["album"] = album
+                if album_artist:
+                    audio["albumartist"] = album_artist
+                if track_num is not None:
+                    audio["tracknumber"] = str(track_num)
+                    if total_tracks:
+                        audio["totaltracks"] = str(total_tracks)
+                audio.save()
+            except Exception:
+                pass
+
+        elif ext in (".ogg", ".opus"):
+            try:
+                audio = mutagen.File(file_path)
+                if audio is not None:
+                    if title:
+                        audio["title"] = [title]
+                    if artist:
+                        audio["artist"] = [artist]
+                    if album:
+                        audio["album"] = [album]
+                    if album_artist:
+                        audio["albumartist"] = [album_artist]
+                    if track_num is not None:
+                        audio["tracknumber"] = [str(track_num)]
+                    audio.save()
+            except Exception:
+                pass
+
+        elif ext == ".wav":
+            try:
+                try:
+                    tags = ID3(file_path)
+                except ID3NoHeaderError:
+                    tags = ID3()
+                if title:
+                    tags["TIT2"] = TIT2(encoding=3, text=title)
+                if artist:
+                    tags["TPE1"] = TPE1(encoding=3, text=artist)
+                if album:
+                    tags["TALB"] = TALB(encoding=3, text=album)
+                if album_artist:
+                    tags["TPE2"] = TPE2(encoding=3, text=album_artist)
+                if track_num is not None:
+                    trck_str = f"{track_num}/{total_tracks}" if total_tracks else str(track_num)
+                    tags["TRCK"] = TRCK(encoding=3, text=trck_str)
+                tags.save(file_path, v2_version=3)
+            except Exception:
+                pass
+
+    except Exception as err:
+        print(f"Warning: Could not apply audio tags to {file_path}: {err}")
+
 def format_duration(seconds: Optional[float]) -> str:
     """Format duration in seconds to mm:ss or hh:mm:ss."""
     if not seconds or seconds < 0:
@@ -864,7 +977,10 @@ class DownloadTask:
                  as_zip: bool = True, output_dir: Optional[str] = None,
                  selected_tracks: Optional[List[int]] = None,
                  embed_artwork: bool = True, embed_metadata: bool = True,
-                 normalize_quiet: bool = True):
+                 normalize_quiet: bool = True,
+                 custom_title: Optional[str] = None,
+                 custom_artist: Optional[str] = None,
+                 custom_tracks: Optional[Dict[Any, Dict[str, str]]] = None):
         self.task_id = task_id
         self.url = url
         self.quality = quality if quality in QUALITY_CONFIGS else "direct_stream"
@@ -874,6 +990,9 @@ class DownloadTask:
         self.embed_artwork = embed_artwork
         self.embed_metadata = embed_metadata
         self.normalize_quiet = normalize_quiet
+        self.custom_title = (custom_title or "").strip()
+        self.custom_artist = (custom_artist or "").strip()
+        self.custom_tracks = custom_tracks or {}
 
         self.cancelled = False
         self.status = "queued"  # queued, downloading, converting, zipping, completed, error, cancelled
@@ -970,17 +1089,20 @@ class DownloadTask:
             self.message = "Обработка и вшивание метаданных..."
 
     def _download_single(self, info: Dict[str, Any]):
+        raw_artist = self.custom_artist or info.get("uploader", "SoundCloud")
+        raw_title = self.custom_title or info.get("title", "Track")
+
         self.status = "downloading"
         self.total_tracks = 1
         self.current_track_idx = 1
-        self.current_track_title = info.get("title", "Трек")
-        self.message = f"Подготовка к загрузке: {self.current_track_title}"
+        self.current_track_title = raw_title
+        self.message = f"Подготовка к загрузке: {raw_title}"
 
         cfg = QUALITY_CONFIGS.get(self.quality) or QUALITY_CONFIGS.get("direct_stream")
         ext = cfg.get("ext", "mp3")
 
-        artist = sanitize_filename(info.get("uploader", "SoundCloud"))
-        title = sanitize_filename(info.get("title", "Track"))
+        artist = sanitize_filename(raw_artist)
+        title = sanitize_filename(raw_title)
         safe_base = f"{artist} - {title}"
         target_file = os.path.join(self.output_dir, f"{safe_base}.{ext}")
 
@@ -1046,6 +1168,10 @@ class DownloadTask:
             if boost > 0:
                 print(f"Applied +{boost:.1f} dB boost to quiet track {target_file}")
 
+        # Apply custom metadata tags if enabled
+        if self.embed_metadata and os.path.exists(target_file):
+            apply_audio_tags(target_file, title=raw_title, artist=raw_artist)
+
         file_size = os.path.getsize(target_file) if os.path.exists(target_file) else 0
 
         self.progress = 100.0
@@ -1076,8 +1202,10 @@ class DownloadTask:
             raise ValueError("Не выбрано ни одного трека для загрузки")
 
         self.total_tracks = len(tracks_to_download)
-        playlist_title = sanitize_filename(info.get("title", "SoundCloud Playlist"))
-        artist = sanitize_filename(info.get("uploader", "SoundCloud"))
+        raw_album = self.custom_title or info.get("title", "SoundCloud Playlist")
+        raw_album_artist = self.custom_artist or info.get("uploader", "SoundCloud")
+        playlist_title = sanitize_filename(raw_album)
+        artist = sanitize_filename(raw_album_artist)
 
         # Temporary staging folder for the tracks
         staging_dir = os.path.join(self.output_dir, f".sc_dl_temp_{self.task_id}")
@@ -1093,12 +1221,17 @@ class DownloadTask:
                 if self.cancelled:
                     break
 
+                t_idx = track.get("index", idx)
+                override = self.custom_tracks.get(t_idx) or self.custom_tracks.get(str(t_idx)) or {}
+                raw_track_title = override.get("title") or track.get("title", f"Track {idx}")
+                raw_track_artist = override.get("artist") or track.get("uploader") or raw_album_artist
+
                 self.current_track_idx = idx
-                self.current_track_title = track.get("title", f"Track {idx}")
+                self.current_track_title = raw_track_title
                 self.message = f"Загрузка ({idx}/{self.total_tracks}): {self.current_track_title}"
 
-                track_artist = sanitize_filename(track.get("uploader") or artist)
-                track_title = sanitize_filename(track.get("title", f"Track {idx}"))
+                track_artist = sanitize_filename(raw_track_artist)
+                track_title = sanitize_filename(raw_track_title)
                 clean_name = f"{idx:02d}. {track_artist} - {track_title}"
                 track_dest = os.path.join(staging_dir, f"{clean_name}.{ext}")
 
@@ -1137,14 +1270,28 @@ class DownloadTask:
                     print(f"Warning: Failed to download track {track_title}: {track_err}")
                     continue
 
+                actual_track_file = None
                 if os.path.exists(track_dest):
-                    downloaded_files.append(track_dest)
+                    actual_track_file = track_dest
                 else:
                     # Search for any audio file created with this track index prefix
                     for f in os.listdir(staging_dir):
                         if f.startswith(f"{idx:02d}.") and not f.endswith(('.jpg', '.png', '.webp', '.part')):
-                            downloaded_files.append(os.path.join(staging_dir, f))
+                            actual_track_file = os.path.join(staging_dir, f)
                             break
+
+                if actual_track_file and os.path.exists(actual_track_file):
+                    if self.embed_metadata:
+                        apply_audio_tags(
+                            actual_track_file,
+                            title=raw_track_title,
+                            artist=raw_track_artist,
+                            album=raw_album,
+                            album_artist=raw_album_artist,
+                            track_num=idx,
+                            total_tracks=self.total_tracks
+                        )
+                    downloaded_files.append(actual_track_file)
 
             if self.cancelled:
                 shutil.rmtree(staging_dir, ignore_errors=True)
@@ -1232,7 +1379,10 @@ def create_task(url: str, quality: str = "mp3_320", as_zip: bool = True,
                 output_dir: Optional[str] = None,
                 selected_tracks: Optional[List[int]] = None,
                 embed_artwork: bool = True, embed_metadata: bool = True,
-                normalize_quiet: bool = True) -> DownloadTask:
+                normalize_quiet: bool = True,
+                custom_title: Optional[str] = None,
+                custom_artist: Optional[str] = None,
+                custom_tracks: Optional[Dict[Any, Dict[str, str]]] = None) -> DownloadTask:
     task_id = f"task_{int(time.time()*1000)}"
     task = DownloadTask(
         task_id=task_id,
@@ -1243,7 +1393,10 @@ def create_task(url: str, quality: str = "mp3_320", as_zip: bool = True,
         selected_tracks=selected_tracks,
         embed_artwork=embed_artwork,
         embed_metadata=embed_metadata,
-        normalize_quiet=normalize_quiet
+        normalize_quiet=normalize_quiet,
+        custom_title=custom_title,
+        custom_artist=custom_artist,
+        custom_tracks=custom_tracks
     )
     active_tasks[task_id] = task
     task.start()

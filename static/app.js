@@ -52,6 +52,15 @@ const trackEmbedMetadata = document.getElementById("trackEmbedMetadata");
 const trackNormalizeQuiet = document.getElementById("trackNormalizeQuiet");
 const trackPlayBtn = document.getElementById("trackPlayBtn");
 
+// Single Track Quick Edit Elements
+const editTrackBtn = document.getElementById("editTrackBtn");
+const trackEditPanel = document.getElementById("trackEditPanel");
+const trackArtistInput = document.getElementById("trackArtistInput");
+const trackTitleInput = document.getElementById("trackTitleInput");
+const saveTrackEditBtn = document.getElementById("saveTrackEditBtn");
+const resetTrackEditBtn = document.getElementById("resetTrackEditBtn");
+const cancelTrackEditBtn = document.getElementById("cancelTrackEditBtn");
+
 // Floating Audio Mini-Player Elements
 const audioMiniPlayer = document.getElementById("audioMiniPlayer");
 const previewAudio = document.getElementById("previewAudio");
@@ -100,6 +109,16 @@ const selectionStatus = document.getElementById("selectionStatus");
 const selectNoneBtn = document.getElementById("selectNoneBtn");
 const downloadPlaylistBtn = document.getElementById("downloadPlaylistBtn");
 const downloadPlaylistBtnText = document.getElementById("downloadPlaylistBtnText");
+
+// Album Quick Edit Elements
+const editPlaylistBtn = document.getElementById("editPlaylistBtn");
+const playlistEditPanel = document.getElementById("playlistEditPanel");
+const playlistArtistInput = document.getElementById("playlistArtistInput");
+const playlistTitleInput = document.getElementById("playlistTitleInput");
+const syncArtistToTracksCheckbox = document.getElementById("syncArtistToTracksCheckbox");
+const savePlaylistEditBtn = document.getElementById("savePlaylistEditBtn");
+const resetPlaylistEditBtn = document.getElementById("resetPlaylistEditBtn");
+const cancelPlaylistEditBtn = document.getElementById("cancelPlaylistEditBtn");
 
 // Clipboard Smart Toast Elements
 const clipboardToast = document.getElementById("clipboardToast");
@@ -378,13 +397,34 @@ function getSelectedTracksDuration() {
   return totalDur;
 }
 
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function renderTrackView(info) {
   const artwork = info.artwork || "https://a-v2.sndcdn.com/assets/images/default/avatar-f000000000.png";
   trackArtwork.src = artwork;
   trackGlow.style.backgroundImage = `url('${artwork}')`;
 
-  trackArtist.textContent = info.uploader || "SoundCloud Артист";
-  trackTitle.textContent = info.title || "SoundCloud Трек";
+  if (trackEditPanel) {
+    trackEditPanel.style.display = "none";
+  }
+  if (editTrackBtn) {
+    editTrackBtn.classList.remove("active");
+  }
+
+  const displayArtist = info.custom_artist || info.uploader || "SoundCloud Артист";
+  const displayTitle = info.custom_title || info.title || "SoundCloud Трек";
+  const isEdited = Boolean(info.custom_artist || info.custom_title);
+
+  trackArtist.innerHTML = `${escapeHtml(displayArtist)}${isEdited ? ' <span class="track-edited-tag">изменено</span>' : ''}`;
+  trackTitle.textContent = displayTitle;
   trackDuration.textContent = info.duration_formatted || "--:--";
   trackGenre.textContent = info.genre || "SoundCloud";
 
@@ -409,8 +449,8 @@ function renderTrackView(info) {
       e.stopPropagation();
       playTrackPreview({
         url: info.url,
-        title: info.title,
-        uploader: info.uploader,
+        title: info.custom_title || info.title,
+        uploader: info.custom_artist || info.uploader,
         artwork: artwork,
         duration: info.duration,
         index: null
@@ -441,8 +481,19 @@ function renderPlaylistView(info) {
   playlistArtwork.src = artwork;
   playlistGlow.style.backgroundImage = `url('${artwork}')`;
 
-  playlistArtist.textContent = info.uploader || "SoundCloud Артист";
-  playlistTitle.textContent = info.title || "SoundCloud Плейлист";
+  if (playlistEditPanel) {
+    playlistEditPanel.style.display = "none";
+  }
+  if (editPlaylistBtn) {
+    editPlaylistBtn.classList.remove("active");
+  }
+
+  const displayArtist = info.custom_artist || info.uploader || "SoundCloud Артист";
+  const displayTitle = info.custom_title || info.title || "SoundCloud Плейлист";
+  const isEdited = Boolean(info.custom_artist || info.custom_title);
+
+  playlistArtist.innerHTML = `${escapeHtml(displayArtist)}${isEdited ? ' <span class="track-edited-tag">изменено</span>' : ''}`;
+  playlistTitle.textContent = displayTitle;
   playlistTrackCount.textContent = `${info.track_count} треков`;
   playlistDuration.textContent = info.total_duration_formatted ? `~${info.total_duration_formatted}` : "";
   playlistTypeBadge.textContent = info.type === "album" ? "Альбом" : "Плейлист";
@@ -465,69 +516,170 @@ function renderPlaylistView(info) {
       row.classList.add("is-playing");
     }
 
-    row.innerHTML = `
-      <label class="custom-checkbox">
-        <input type="checkbox" class="track-select-cb" data-index="${t.index}" checked>
-        <span class="checkmark"></span>
-      </label>
-      <button class="track-play-inline-btn" title="Слушать превью" data-index="${t.index}">
-        <svg class="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <polygon points="6 3 20 12 6 21 6 3"></polygon>
-        </svg>
-        <svg class="pause-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
-          <rect x="6" y="4" width="4" height="16"></rect>
-          <rect x="14" y="4" width="4" height="16"></rect>
-        </svg>
-      </button>
-      <span class="track-num">${t.index}</span>
-      <div class="track-row-info">
-        <span class="track-row-title" title="${t.title}">${t.title}</span>
-        <span class="track-row-artist">${t.uploader}</span>
-      </div>
-      <span class="track-row-dur">${t.duration_formatted}</span>
-    `;
-
-    // Double-click row to preview
-    row.addEventListener("dblclick", (e) => {
-      if (e.target.closest(".custom-checkbox")) return;
-      playTrackPreview({
-        url: t.url,
-        title: t.title,
-        uploader: t.uploader,
-        artwork: t.artwork || artwork,
-        duration: t.duration,
-        duration_formatted: t.duration_formatted,
-        index: t.index
-      });
-    });
-
-    // Inline play button click
-    const inlineBtn = row.querySelector(".track-play-inline-btn");
-    inlineBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      playTrackPreview({
-        url: t.url,
-        title: t.title,
-        uploader: t.uploader,
-        artwork: t.artwork || artwork,
-        duration: t.duration,
-        duration_formatted: t.duration_formatted,
-        index: t.index
-      });
-    });
-
-    // Checkbox container stopPropagation to prevent accidental double-click / preview triggers
-    const cb = row.querySelector(".custom-checkbox");
-    cb.addEventListener("click", (e) => {
-      e.stopPropagation();
-    });
-
+    renderTrackRowContent(row, t, artwork);
     tracklistItems.appendChild(row);
   });
 
   // Checkbox interactions
   setupTrackSelectionListeners();
   updateSelectionCount();
+
+  // Render Quality Grid with estimated sizes calculated for all selected tracks
+  renderQualityGrid(playlistQualityGrid, info.qualities || availableQualities, (q) => {
+    selectedQuality = q;
+    updatePlaylistButtonText();
+  }, true);
+
+  updatePlaylistButtonText();
+}
+
+function renderTrackRowContent(row, t, artwork) {
+  const displayTitle = t.custom_title || t.title;
+  const displayArtist = t.custom_artist || t.uploader;
+  const isEdited = Boolean(t.custom_title || t.custom_artist);
+
+  row.innerHTML = `
+    <label class="custom-checkbox">
+      <input type="checkbox" class="track-select-cb" data-index="${t.index}" checked>
+      <span class="checkmark"></span>
+    </label>
+    <button class="track-play-inline-btn" title="Слушать превью" data-index="${t.index}">
+      <svg class="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="6 3 20 12 6 21 6 3"></polygon>
+      </svg>
+      <svg class="pause-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+        <rect x="6" y="4" width="4" height="16"></rect>
+        <rect x="14" y="4" width="4" height="16"></rect>
+      </svg>
+    </button>
+    <span class="track-num">${t.index}</span>
+    <div class="track-row-info">
+      <span class="track-row-title" title="${escapeHtml(displayTitle)}">
+        ${escapeHtml(displayTitle)}
+        ${isEdited ? '<span class="track-edited-tag">изменено</span>' : ''}
+      </span>
+      <span class="track-row-artist">${escapeHtml(displayArtist)}</span>
+    </div>
+    <span class="track-row-dur">${t.duration_formatted}</span>
+    <button class="track-row-edit-btn" title="Редактировать название и артиста" data-index="${t.index}">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 20h9"></path>
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+      </svg>
+    </button>
+  `;
+
+  attachRowEvents(row, t, artwork);
+}
+
+function startTrackRowInlineEdit(row, t, artwork) {
+  row.classList.add("is-editing");
+  const currentTitle = t.custom_title || t.title;
+  const currentArtist = t.custom_artist || t.uploader;
+
+  row.innerHTML = `
+    <span class="track-num" style="margin-left: 8px;">${t.index}</span>
+    <div class="track-row-edit-mode">
+      <input type="text" class="inline-edit-input track-title-input" value="${escapeHtml(currentTitle)}" placeholder="Название трека" style="flex: 1.8;">
+      <input type="text" class="inline-edit-input track-artist-input" value="${escapeHtml(currentArtist)}" placeholder="Исполнитель" style="flex: 1.2;">
+      <button class="inline-edit-btn inline-edit-confirm-btn" title="Сохранить (Enter)">✓</button>
+      <button class="inline-edit-btn inline-edit-cancel-btn" title="Отмена (Esc)">✕</button>
+    </div>
+  `;
+
+  const titleInp = row.querySelector(".track-title-input");
+  const artistInp = row.querySelector(".track-artist-input");
+  const confirmBtn = row.querySelector(".inline-edit-confirm-btn");
+  const cancelBtn = row.querySelector(".inline-edit-cancel-btn");
+
+  titleInp.focus();
+  titleInp.select();
+
+  [titleInp, artistInp, confirmBtn, cancelBtn].forEach(el => {
+    el.addEventListener("click", e => e.stopPropagation());
+    el.addEventListener("dblclick", e => e.stopPropagation());
+  });
+
+  const saveEdit = () => {
+    const valTitle = titleInp.value.trim();
+    const valArtist = artistInp.value.trim();
+    if (valTitle) t.custom_title = valTitle;
+    if (valArtist) t.custom_artist = valArtist;
+    row.classList.remove("is-editing");
+    renderTrackRowContent(row, t, artwork);
+    setupTrackSelectionListeners();
+    updateSelectionCount();
+    updatePlaylistButtonText();
+  };
+
+  const cancelEdit = () => {
+    row.classList.remove("is-editing");
+    renderTrackRowContent(row, t, artwork);
+    setupTrackSelectionListeners();
+    updateSelectionCount();
+  };
+
+  confirmBtn.addEventListener("click", saveEdit);
+  cancelBtn.addEventListener("click", cancelEdit);
+
+  [titleInp, artistInp].forEach(inp => {
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveEdit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancelEdit();
+      }
+    });
+  });
+}
+
+function attachRowEvents(row, t, artwork) {
+  const editBtn = row.querySelector(".track-row-edit-btn");
+  if (editBtn) {
+    editBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      startTrackRowInlineEdit(row, t, artwork);
+    });
+  }
+
+  row.addEventListener("dblclick", (e) => {
+    if (e.target.closest(".custom-checkbox") || e.target.closest(".track-row-edit-btn") || row.classList.contains("is-editing")) return;
+    playTrackPreview({
+      url: t.url,
+      title: t.custom_title || t.title,
+      uploader: t.custom_artist || t.uploader,
+      artwork: t.artwork || artwork,
+      duration: t.duration,
+      duration_formatted: t.duration_formatted,
+      index: t.index
+    });
+  });
+
+  const inlineBtn = row.querySelector(".track-play-inline-btn");
+  if (inlineBtn) {
+    inlineBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      playTrackPreview({
+        url: t.url,
+        title: t.custom_title || t.title,
+        uploader: t.custom_artist || t.uploader,
+        artwork: t.artwork || artwork,
+        duration: t.duration,
+        duration_formatted: t.duration_formatted,
+        index: t.index
+      });
+    });
+  }
+
+  const cb = row.querySelector(".custom-checkbox");
+  if (cb) {
+    cb.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+  }
+}
 
   // Render Quality Grid with estimated sizes calculated for all selected tracks
   renderQualityGrid(playlistQualityGrid, info.qualities || availableQualities, (q) => {
@@ -772,7 +924,9 @@ downloadTrackBtn.addEventListener("click", () => {
     output_dir: customOutputDir,
     embed_artwork: trackEmbedArtwork.checked,
     embed_metadata: trackEmbedMetadata.checked,
-    normalize_quiet: trackNormalizeQuiet ? trackNormalizeQuiet.checked : true
+    normalize_quiet: trackNormalizeQuiet ? trackNormalizeQuiet.checked : true,
+    custom_title: currentMediaInfo.custom_title || currentMediaInfo.title,
+    custom_artist: currentMediaInfo.custom_artist || currentMediaInfo.uploader
   });
 });
 
@@ -784,6 +938,16 @@ downloadPlaylistBtn.addEventListener("click", () => {
     return;
   }
 
+  const customTracks = {};
+  (currentMediaInfo.tracks || []).forEach(t => {
+    if (t.custom_title || t.custom_artist) {
+      customTracks[t.index] = {
+        title: t.custom_title || t.title,
+        artist: t.custom_artist || t.uploader
+      };
+    }
+  });
+
   startDownload({
     url: currentMediaInfo.url,
     quality: selectedQuality,
@@ -792,7 +956,10 @@ downloadPlaylistBtn.addEventListener("click", () => {
     selected_tracks: selectedTracks,
     embed_artwork: true,
     embed_metadata: true,
-    normalize_quiet: playlistNormalizeQuiet ? playlistNormalizeQuiet.checked : true
+    normalize_quiet: playlistNormalizeQuiet ? playlistNormalizeQuiet.checked : true,
+    custom_title: currentMediaInfo.custom_title || currentMediaInfo.title,
+    custom_artist: currentMediaInfo.custom_artist || currentMediaInfo.uploader,
+    custom_tracks: customTracks
   });
 });
 
@@ -1240,5 +1407,190 @@ playerVolumeBtn.addEventListener("click", () => {
 
 playerCloseBtn.addEventListener("click", stopAudioPreview);
 
+function setupEditListeners() {
+  // Single Track Edit Listeners
+  if (editTrackBtn) {
+    editTrackBtn.addEventListener("click", () => {
+      if (!currentMediaInfo) return;
+      const isVisible = trackEditPanel.style.display !== "none";
+      if (isVisible) {
+        trackEditPanel.style.display = "none";
+        editTrackBtn.classList.remove("active");
+      } else {
+        trackArtistInput.value = currentMediaInfo.custom_artist || currentMediaInfo.uploader || "";
+        trackTitleInput.value = currentMediaInfo.custom_title || currentMediaInfo.title || "";
+        trackEditPanel.style.display = "flex";
+        editTrackBtn.classList.add("active");
+        trackTitleInput.focus();
+        trackTitleInput.select();
+      }
+    });
+  }
+
+  if (saveTrackEditBtn) {
+    saveTrackEditBtn.addEventListener("click", () => {
+      if (!currentMediaInfo) return;
+      const valArtist = trackArtistInput.value.trim();
+      const valTitle = trackTitleInput.value.trim();
+      if (valArtist) {
+        currentMediaInfo.custom_artist = valArtist;
+      }
+      if (valTitle) {
+        currentMediaInfo.custom_title = valTitle;
+      }
+      const isEdited = Boolean(currentMediaInfo.custom_artist || currentMediaInfo.custom_title);
+      trackArtist.innerHTML = `${escapeHtml(currentMediaInfo.custom_artist || currentMediaInfo.uploader)}${isEdited ? ' <span class="track-edited-tag">изменено</span>' : ''}`;
+      trackTitle.textContent = currentMediaInfo.custom_title || currentMediaInfo.title;
+      trackEditPanel.style.display = "none";
+      editTrackBtn.classList.remove("active");
+      updateTrackButtonText();
+    });
+  }
+
+  if (resetTrackEditBtn) {
+    resetTrackEditBtn.addEventListener("click", () => {
+      if (!currentMediaInfo) return;
+      delete currentMediaInfo.custom_artist;
+      delete currentMediaInfo.custom_title;
+      trackArtist.textContent = currentMediaInfo.uploader || "SoundCloud Артист";
+      trackTitle.textContent = currentMediaInfo.title || "SoundCloud Трек";
+      trackEditPanel.style.display = "none";
+      editTrackBtn.classList.remove("active");
+      updateTrackButtonText();
+    });
+  }
+
+  if (cancelTrackEditBtn) {
+    cancelTrackEditBtn.addEventListener("click", () => {
+      trackEditPanel.style.display = "none";
+      editTrackBtn.classList.remove("active");
+    });
+  }
+
+  [trackArtistInput, trackTitleInput].forEach(inp => {
+    if (inp) {
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          saveTrackEditBtn.click();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          cancelTrackEditBtn.click();
+        }
+      });
+    }
+  });
+
+  // Album / Playlist Edit Listeners
+  if (editPlaylistBtn) {
+    editPlaylistBtn.addEventListener("click", () => {
+      if (!currentMediaInfo) return;
+      const isVisible = playlistEditPanel.style.display !== "none";
+      if (isVisible) {
+        playlistEditPanel.style.display = "none";
+        editPlaylistBtn.classList.remove("active");
+      } else {
+        playlistArtistInput.value = currentMediaInfo.custom_artist || currentMediaInfo.uploader || "";
+        playlistTitleInput.value = currentMediaInfo.custom_title || currentMediaInfo.title || "";
+        playlistEditPanel.style.display = "flex";
+        editPlaylistBtn.classList.add("active");
+        playlistTitleInput.focus();
+        playlistTitleInput.select();
+      }
+    });
+  }
+
+  if (savePlaylistEditBtn) {
+    savePlaylistEditBtn.addEventListener("click", () => {
+      if (!currentMediaInfo) return;
+      const valArtist = playlistArtistInput.value.trim();
+      const valTitle = playlistTitleInput.value.trim();
+
+      if (valArtist) {
+        currentMediaInfo.custom_artist = valArtist;
+      }
+      if (valTitle) {
+        currentMediaInfo.custom_title = valTitle;
+      }
+
+      const isEdited = Boolean(currentMediaInfo.custom_artist || currentMediaInfo.custom_title);
+      playlistArtist.innerHTML = `${escapeHtml(currentMediaInfo.custom_artist || currentMediaInfo.uploader)}${isEdited ? ' <span class="track-edited-tag">изменено</span>' : ''}`;
+      playlistTitle.textContent = currentMediaInfo.custom_title || currentMediaInfo.title;
+
+      if (syncArtistToTracksCheckbox && syncArtistToTracksCheckbox.checked && valArtist) {
+        (currentMediaInfo.tracks || []).forEach(t => {
+          t.custom_artist = valArtist;
+        });
+        const artwork = currentMediaInfo.artwork || "";
+        const rows = tracklistItems.querySelectorAll(".track-row");
+        rows.forEach(row => {
+          const idx = parseInt(row.dataset.index, 10);
+          const t = (currentMediaInfo.tracks || []).find(tr => tr.index === idx);
+          if (t && !row.classList.contains("is-editing")) {
+            renderTrackRowContent(row, t, artwork);
+          }
+        });
+        setupTrackSelectionListeners();
+      }
+
+      playlistEditPanel.style.display = "none";
+      editPlaylistBtn.classList.remove("active");
+      updatePlaylistButtonText();
+    });
+  }
+
+  if (resetPlaylistEditBtn) {
+    resetPlaylistEditBtn.addEventListener("click", () => {
+      if (!currentMediaInfo) return;
+      delete currentMediaInfo.custom_artist;
+      delete currentMediaInfo.custom_title;
+      playlistArtist.textContent = currentMediaInfo.uploader || "SoundCloud Артист";
+      playlistTitle.textContent = currentMediaInfo.title || "SoundCloud Плейлист";
+
+      (currentMediaInfo.tracks || []).forEach(t => {
+        delete t.custom_artist;
+        delete t.custom_title;
+      });
+
+      const artwork = currentMediaInfo.artwork || "";
+      const rows = tracklistItems.querySelectorAll(".track-row");
+      rows.forEach(row => {
+        const idx = parseInt(row.dataset.index, 10);
+        const t = (currentMediaInfo.tracks || []).find(tr => tr.index === idx);
+        if (t) {
+          renderTrackRowContent(row, t, artwork);
+        }
+      });
+      setupTrackSelectionListeners();
+
+      playlistEditPanel.style.display = "none";
+      editPlaylistBtn.classList.remove("active");
+      updatePlaylistButtonText();
+    });
+  }
+
+  if (cancelPlaylistEditBtn) {
+    cancelPlaylistEditBtn.addEventListener("click", () => {
+      playlistEditPanel.style.display = "none";
+      editPlaylistBtn.classList.remove("active");
+    });
+  }
+
+  [playlistArtistInput, playlistTitleInput].forEach(inp => {
+    if (inp) {
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          savePlaylistEditBtn.click();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          cancelPlaylistEditBtn.click();
+        }
+      });
+    }
+  });
+}
+
 // Initial Run
+setupEditListeners();
 initSystem();

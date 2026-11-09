@@ -174,6 +174,9 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                 embed_artwork = body.get("embed_artwork", True)
                 embed_metadata = body.get("embed_metadata", True)
                 normalize_quiet = body.get("normalize_quiet", True)
+                custom_title = body.get("custom_title")
+                custom_artist = body.get("custom_artist")
+                custom_tracks = body.get("custom_tracks")
 
                 task = engine.create_task(
                     url=url,
@@ -183,7 +186,10 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                     selected_tracks=selected_tracks,
                     embed_artwork=embed_artwork,
                     embed_metadata=embed_metadata,
-                    normalize_quiet=normalize_quiet
+                    normalize_quiet=normalize_quiet,
+                    custom_title=custom_title,
+                    custom_artist=custom_artist,
+                    custom_tracks=custom_tracks
                 )
 
                 self._set_headers()

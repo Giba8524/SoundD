@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SoundCloud Downloader для Mac</title>
-  <link rel="stylesheet" href="style.css?v=4">
-  <link rel="icon" type="image/png" href="icon.png?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="icon" type="image/png" href="icon.png?v=5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -140,8 +140,34 @@
             <div class="media-details">
               <div class="artist-row">
                 <span class="artist-name" id="trackArtist">Артист</span>
+                <button class="edit-badge-btn" id="editTrackBtn" title="Редактировать название и артиста">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                  <span>Изменить</span>
+                </button>
               </div>
               <h2 class="media-title" id="trackTitle">Название трека</h2>
+
+              <!-- Quick Edit Box for Single Track -->
+              <div class="quick-edit-panel" id="trackEditPanel" style="display: none;">
+                <div class="edit-fields-row">
+                  <div class="edit-field">
+                    <label class="edit-field-label">Исполнитель:</label>
+                    <input type="text" class="edit-text-input" id="trackArtistInput" placeholder="Исполнитель">
+                  </div>
+                  <div class="edit-field">
+                    <label class="edit-field-label">Название трека:</label>
+                    <input type="text" class="edit-text-input" id="trackTitleInput" placeholder="Название трека">
+                  </div>
+                </div>
+                <div class="edit-actions-row">
+                  <button class="edit-action-btn primary" id="saveTrackEditBtn">Применить</button>
+                  <button class="edit-action-btn secondary" id="resetTrackEditBtn">Сбросить</button>
+                  <button class="edit-action-btn cancel" id="cancelTrackEditBtn">Закрыть</button>
+                </div>
+              </div>
               <div class="media-meta">
                 <span class="meta-item" id="trackDuration">--:--</span>
                 <span class="meta-dot">•</span>
@@ -218,8 +244,41 @@
             <div class="playlist-info">
               <div class="artist-row">
                 <span class="artist-name" id="playlistArtist">Артист</span>
+                <button class="edit-badge-btn" id="editPlaylistBtn" title="Редактировать название альбома и артиста">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                  <span>Изменить альбом</span>
+                </button>
               </div>
               <h2 class="media-title" id="playlistTitle">Название альбома</h2>
+
+              <!-- Quick Edit Box for Album / Playlist -->
+              <div class="quick-edit-panel" id="playlistEditPanel" style="display: none;">
+                <div class="edit-fields-row">
+                  <div class="edit-field">
+                    <label class="edit-field-label">Исполнитель альбома:</label>
+                    <input type="text" class="edit-text-input" id="playlistArtistInput" placeholder="Исполнитель альбома">
+                  </div>
+                  <div class="edit-field">
+                    <label class="edit-field-label">Название альбома:</label>
+                    <input type="text" class="edit-text-input" id="playlistTitleInput" placeholder="Название альбома">
+                  </div>
+                </div>
+                <div class="edit-extra-row">
+                  <label class="custom-checkbox">
+                    <input type="checkbox" id="syncArtistToTracksCheckbox" checked>
+                    <span class="checkmark"></span>
+                  </label>
+                  <span class="extra-label">Применить этого исполнителя ко всем трекам альбома</span>
+                </div>
+                <div class="edit-actions-row">
+                  <button class="edit-action-btn primary" id="savePlaylistEditBtn">Применить</button>
+                  <button class="edit-action-btn secondary" id="resetPlaylistEditBtn">Сбросить</button>
+                  <button class="edit-action-btn cancel" id="cancelPlaylistEditBtn">Закрыть</button>
+                </div>
+              </div>
               <div class="playlist-stats">
                 <span class="stat-pill" id="playlistTrackCount">0 треков</span>
                 <span class="stat-pill" id="playlistDuration">0 мин</span>
@@ -475,6 +534,6 @@
 
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
